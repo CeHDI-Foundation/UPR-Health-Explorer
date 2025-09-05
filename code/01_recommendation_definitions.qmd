@@ -1,0 +1,941 @@
+---
+title: "Definitions of recommendations related to the Right to Health in the Universal Periodic Review"
+author: "Anshu Uppal"
+date: "2025-08-13"
+date-modified: last-modified # Dynamic modified date
+format:
+        html:
+                code-fold: true
+                toc: true
+                toc-location: left  # Place TOC on the left side
+                toc-depth: 5        # Include headers up to level 3 (###)
+                toc-title: "On this page" # Custom title for the TOC
+                smooth-scroll: true # Enable smooth scrolling
+                embed-resources: true # Make the html file self contained
+                grid: 
+                  body-width: 1100px
+                  margin-width: 100px
+reference-location: margin
+citation-location: margin
+fig-format: svg
+knitr: 
+  opts_chunk: 
+    dev: svglite
+    fig.path: output/figures/
+---
+
+## Setup
+```{r}
+# install.packages("pacman")
+pacman::p_load(
+  here,
+  tidyverse,
+  # plotly,
+  janitor,
+  DT,
+  sf,
+  necountries,
+  patchwork,
+  Hmisc,
+  ggtext
+)
+
+# Load or install packages from GitHub:
+# pacman::p_load_gh(
+#   
+# )
+
+# Load in custom functions
+source(here("utils.R"))
+```
+
+### Read in the UPR data 
+From the SDG data from the "Human Rights Data Explorer" (created and maintained by the Danish Institute for Human Rights):
+<https://sdgdata.humanrights.dk/en/mechanisms/upr/cycle-4>
+(Navigate to the link above and click "download all data" - the download preparation takes >30 minutes)
+
+For the present analysis, the dataset was downloaded on June 3rd, 2025. I then converted the CSV file to RDS format to save disk space and for faster importing.
+```{r}
+# Download from https://sdgdata.humanrights.dk/en/solr-explorer
+sdg_data1 <- readRDS(here("data","sdg_data.rds")) |> 
+  janitor::clean_names() |> 
+  mutate_if(is.character, ~na_if(., "")) |> # convert blank spaces to true NA
+  filter(mechanism == "Universal Periodic Review") |> 
+  rename(state_under_review = state) |> 
+  mutate(
+    year = ymd(paste0(year, "01-01")),
+    cycle = factor(cycle),
+    sdg_linked = factor(case_when(sdg_goals == "No SDG link identified" ~ "No SDG link",
+                                  .default = "Linked to an SDG"), 
+                        levels = c("No SDG link", "Linked to an SDG")),
+    response_upr = factor(case_when(
+      response_upr %in% c("Supported/Noted", "Noted") ~ "Noted/Other",
+      .default = response_upr)),
+    title = str_split_i(paragraph, "\\|", 2)
+  ) |> 
+  mutate(title_a = str_split_i(title,"\\.",1),
+         title_b = str_pad(str_split_i(title,"\\.",2), , width = 3, side = "left", pad = "0"),
+         title_2 = paste(title_a, title_b,sep = ".")) |> 
+  select(-title_a, -title_b) |> 
+  relocate(sdg_linked, .after = sdg_goals) |> 
+  # remove duplicate entries of same recommendation 
+  # (sometimes repeated when multiple states are ascribed to same recommendation)
+  # group_by(cycle, state_under_review) |>
+  # distinct(title, .keep_all = TRUE) |>
+  # ungroup() |> 
+  arrange(state_under_review, cycle, title_2)
+
+```
+
+### Create definitions 
+
+**Still to refine, especially the definitions related to maternal health**
+
+See also: <https://www.who.int/health-topics>
+
+#### Right to health
+I then created a set of keywords to assign recommendations as being related to the "right to health". This is a key step to refine in case we opt for an automated process. Some of the keywords are partial words because I use a partial word matching (e.g. "prophyla" will match with both "prophylaxis" as well as "prophylactics"). **Need to be careful to not accidentally include irrelevent terms.**
+
+Need to review inclusion of remaining recommendations with reference to CEDAW (~400 entries)
+```{r}
+# Define keywords to use to identify recommendations related to the right to health
+health_keywords <- "health|sanitation|sanitary|safe water|clean water|right to water|disease|sick|infectio|nutrition|tuberculosis|malaria|with hiv| hiv |hiv/aids|hiv-aids|hiv and aids|hiv-positive| sti | tb |hospital|clinic|vaccin|immunisation|immunization|virus|viral|medic|doctor|nurse|nursing|maternal|contracep|abortion|reproductive|pregnan|prenatal|postnatal|neonatal|breastfe|obstetric|fertility|medic|diabetes|cancer|blood|hypertension|respiratory|prophyla|violence against women|violence against children|domestic violence|family violence|violence in the family|gender-based violence|sexual violence|marital violence|gender violence| rape|virginity|hunger|malnutrition|obesity|sexual abuse|mortality|leprosy|famine|drought|food|tobacco|smoking|child marriage|forced marriage|early marriage|infanticide|mutilation|honor crime|honor killing|honour crime|honour killing|breast ironing|harmful practices|harmful traditional practices|epidem|intersex|same sex|same-sex|sterilization|contracept|sex education|suicide|cedaw|femicide|polygam|covid|pandemic|corona"
+
+# "well-being|wellbeing|disaster|disabled|disabili"
+
+# Define combinations of keywords for the right to health
+keywords_comb1a <- "child|girl|women|sexual|domestic|gender|marital|lgbt"
+keywords_comb1b <- "abuse|maltreatment|violence|sexual|same-sex"
+
+keywords_comb2a <- "forced|minimum"
+keywords_comb2b <- "marriage"
+
+keywords_comb3a <- "sex|gender|civil identity|transgender"
+keywords_comb3b <- "surgery|sterili"
+
+
+```
+
+##### Health systems and services
+> In 2007 the World Health Organization (WHO) proposed a framework describing health systems in terms of six core components or ‘building blocks’: (i) service delivery and safety; (ii) health workforce; (iii) health statistics and information systems; (iv) access to essential medicines; (v) financing; and (vi) leadership/ governance.  
+
+When applying these definitions, I think we will need to first more generally define health-related recommendations, and then within that context we can apply the keywords below to define health systems and services.
+
+```{r}
+hss_keywords <- "health worker|uhc|universal health|health system|healthcare system|health-care system|health care system|health service|healthcare service|health-care service|health care service| oral health"
+hss_other_keywords <- "data"
+
+hss_keywords_comb1a <- "health"
+hss_keywords_comb1b <- "capacity-building|coverage|universal access|affordab|facilities"
+
+hss_keywords_comb2a <- "health"
+hss_keywords_comb2b <- "sector"
+hss_keywords_comb2c <- "financ"
+
+```
+
+##### Health security, emergencies, and disaster relief
+> This category relates to health in the context of humanitarian, emergency and disaster relief in order to reduce avoidable loss of life and the burden of disease and disability. Emergencies include any event that may have negative consequences for human health including events that have not yet led to disease in humans but have the potential to cause human disease through exposure to infected or contaminated food, water, animals, manufactured products or environments. Emergencies are situations impacting the lives and well-being of a large number of people or significant percentage of a population and requiring substantial multi-sectoral assistance. For WHO to respond, there must be clear health consequences.
+
+```{r}
+emergencies_keywords <- "covid|pandemic|epidemic|drought"
+
+emergencies_keywords_comb1a <- "disaster"
+emergencies_keywords_comb1b <- "health|life"
+
+emergencies_keywords_comb2a <- "earthquake|flood|drought"
+emergencies_keywords_comb2b <- "relief"
+```
+
+##### NCDs
+> The four main types of noncommunicable diseases (NCD) are cardiovascular diseases (like heart attacks and stroke); cancers; chronic respiratory diseases (such as chronic obstructed pulmonary disease and asthma); diabetes; alcohol and drug use. But this category also includes other types of NCD.
+
+```{r}
+ncd_keywords <- "non-communicable|cardiovascular|stroke|cancer|neoplasm|chronic diseas|hypertension|diabet|alcohol|tobacco|smoking|kidney| liver |air pollution"
+
+ncd_keywords_comb1a <- " drug"
+ncd_keywords_comb1b <- "addict|abuse| use |harm"
+
+ncd_keywords_comb2a <- " air "
+ncd_keywords_comb2b <- "pollution| quality"
+
+ncd_exclusion <- ""
+```
+##### Communicable diseases
+> Communicable diseases comprise both infectious diseases and zoonotic diseases. Infectious diseases are caused by pathogenic microorganisms, such as bacteria, viruses, parasites or fungi; the diseases can be spread, directly or indirectly, from one person to another. Zoonotic diseases are infectious diseases of animals that can cause disease when transmitted to humans.
+
+```{r}
+communicable_keywords <- " communicable|infectious|zoonotic|pathogen|parasit|fungal|ebola|measles|influenza|polio|norovirus|vector|water-borne|trachoma"
+
+communicable_keywords_comb1a <- "virus"
+# In this instance, exempt combinations with the following (these will fall purely under HIV/AIDs):
+communicable_keywords_comb1b <- "with hiv| hiv |hiv/aids|hiv-aids|hiv and aids|hiv-positive| hiv,| hiv-"
+
+communicable_exclusion <- ""
+```
+
+##### SRHR
+> Sexual health is a state of physical, mental and social well-being in relation to sexuality. It requires a positive and respectful approach to sexuality and sexual relationships, as well as the possibility of having pleasurable and safe sexual experiences, free of coercion, discrimination and violence.  
+
+> Reproductive health is concerned with a state of physical, mental and social well-being in relation to sexuality, as well as the reproductive processes, functions and system at all stages of life. Examples include the freedom to decide if, when, and how often to engage in sexual activity; the right of men and women to be informed about and have access to safe, effective, affordable and acceptable methods of fertility regulation of their choice; and the right of women to access appropriate health care services that will enable them to go through pregnancy safely.
+
+May need to first define "Health of LGBTI persons", and then add logic so that other issues related to LGBTI rights, and not included in the health of LGBTI classification, will fall under SRHR.
+```{r}
+srhr_keywords <- "abortion|pregnan|reproductive|sex education|sexuality education|contracept|breastfe|fertility|sterilization|family planning|sexual health|miscarr|birth control|condom"
+
+srhr_keywords_comb1a <- "sex|gender|civil identity|transgender"
+srhr_keywords_comb1b <- "sterili"
+```
+
+##### Mental health
+> Mental health refers to a broad array of activities directly or indirectly related to the mental well-being component included in the WHO’s definition of health: “A state of complete physical, mental and social well-being, and not merely the absence of disease”. It is related to the promotion of well-being, the prevention of mental disorders, and the treatment and rehabilitation of people affected by mental disorders.
+
+```{r}
+mental_keywords <- "anxiety|depression| mental|suicide|psychosocial|psychiatr|involuntary hospital|forced hospital"
+
+mental_keywords_comb1a <- " mental"
+mental_keywords_comb1b <- "health|disorder|illness"
+```
+##### Social and economic determinants of health
+> The social determinants of health (SDH) are the conditions in which people are born, grow, work, live, and age, and the wider set of forces and systems shaping the conditions of daily life. These forces and systems include economic policies and systems, development agendas, social norms, social policies and political systems. The Sustainable Development Goals (SDGs) provide a comprehensive blueprint for human development and for systematically addressing the social determinants of health.
+
+May need to first generally define health, and then classify SOCED as health-related recommendations that touch on social determinants
+```{r}
+SOCED_keywords <- "social determinants|migrant|poverty| poor|destitut|inequality|vulnerable| elder| older"
+```
+
+##### GBV - Gender-based violence
+> This category includes any violence which has been perpetrated against another based on their sex, gender identity and expression, or their sexual orientation, as well as harmful practices such as female genital mutilation (FGM), female infanticide, sex-selective abortions, forced and early marriage, honour crimes or killings, polygamy, wife inheritance, virginity tests, breast ironing and similar practices.
+
+```{r}
+GBV_keywords <- "child marriage|early marriage|child marriage|forced marriage|early marriage|mutilation| fgm |honor crime|honor killing|honour crime|honour killing|breast ironing|harmful practices|harmful traditional practices|violence against women|violence against children|domestic violence|family violence|violence in the family|gender-based violence|sexual violence|marital violence|partner violence|gender violence| rape|virginity|sexual abuse|femicide|polygam|sex selection|dowry|bride kidnap|child bride"
+
+GBV_keywords_comb1a <- "forced|minimum"
+GBV_keywords_comb1b <- "marriage|pregnancy"
+
+GBV_keywords_comb2a <- "girl|women|sexual|domestic|gender|marital|lgbt|same-sex"
+GBV_keywords_comb2b <- "abuse|maltreatment|violence|harassment|intimidation"
+
+GBV_keywords_comb3a <- "abort"
+GBV_keywords_comb3b <- "select|forced"
+```
+##### Women's health
+> This category is concerned with any health recommendation relating to women’s health, which was not linked to violence or SRHR, but rather addresses general health through a gendered lens. Recommendations classified here include the ratification of CEDAW.
+
+May need to move this to end of the definitions, so that we can use the health_related definition and exclude those already included under SRHR or GBV
+```{r}
+women_keywords <- "cedaw|elimination of all forms of discrimination against women|menstrua"
+
+women_keywords_comb1a <- "woman|women"
+women_keywords_comb1b <- "death|mortality|health"
+```
+##### Maternal, child, and adolescent health
+> This category covers issues relating to maternal, foetal, newborn, infant, child and adolescent health. Also included in this category are recommendations relating to the ratification of the Convention on the Rights of the Child (CRC) and its optional protocol regarding the sale of children.
+
+```{r}
+MCAH_keywords <- "newborn|foetal|fetal|fetus|foetus| infant|maternal|pregnan|midwif|midwiv|antenatal|neonatal|prenatal|postnatal|birth atten|childbirth|child birth|eclampsia|obstet|intrapartum|postpartum|post-partum|contracept|breastfe|rights of the child| crc|sale of children|trafficking of children|child traffic|child protection|protection of children|protection of women and children"
+
+MCAH_keywords_comb1a <- "maternal|child|infant|adolescent| teen"
+MCAH_keywords_comb1b <- "death|mortality|health|pregnan"
+
+MCAH_keywords_comb2a <- " child"
+MCAH_keywords_comb2b <- " traffic"
+```
+
+##### Essential medicines and health products
+> The issue of essential medicines covers the availability of essential medicines within the context of functioning health systems. Ideally, essential medicines are available at all times in adequate amounts, in the appropriate dosage forms, with assured quality, and at a price the individual and the community can afford.
+
+```{r}
+essential_medicines_keywords <- "medicine"
+```
+
+
+##### Disabilities and health
+> Disability is an umbrella term for impairments, activity limitations and participation restrictions. This category includes any issue that relates to persons with disabilities and their right to access health services. Recommendations to ratify the Convention on the Rights of Persons with Disabilities fall in this category.
+
+```{r}
+disabilities_keywords <- "crpd|rights of persons with disabilities| deaf"
+
+disabilities_keywords_comb1a <- "health"
+disabilities_keywords_comb1b <- "disabil|disabled"
+```
+
+##### Health of LGBTI persons
+> This category includes any issue related to lesbian, gay, bisexual, transgender, and intersex (LGBTI) persons and their right to access health services, including general health services but also specific LGBTI health needs, such as hormone therapy and sex reassignment surgery.
+
+Difficult to tease this category out of SRHR based only on keywords - need to look in more details at the resulting recommendations and finetune it all.
+
+Also need to refine for health-related rights vs rights in general
+```{r}
+LGBTI_keywords <- "lgbti|reassignment|intersex|same sex|same-sex"
+
+LGBTI_keywords_comb1a <- "lgbt|lgtb| gay|lesbian|transgender|intersex|same sex|same-sex|gender"
+LGBTI_keywords_comb1b <- "health|surgery|reassignment"
+```
+
+##### HIV/AIDS and STIs
+> This category is concerned with any recommendation relating to HIV/ AIDS and sexually transmitted infections (STIs), such as access to healthcare for persons with HIV/AIDS or STIs or prevention of the spread of HIV/AIDS and STIs.
+
+```{r}
+HIV_keywords <- "with hiv| hiv |hiv/aids|hiv-aids|hiv and aids|hiv-positive| hiv,| hiv-| sti | std | stds | stis | aids |sti,| std,| stds,| stis,| aids,|chlamydia|gonorrhea|syphilis|herpes|papillomavirus| hpv | hpv,|trichomoniasis|sexually transm|sexual transm|antiretroviral|anti-retroviral"
+
+HIV_keywords_comb1a <- ""
+HIV_keywords_comb1b <- ""
+```
+##### TB, Malaria, and NTDs
+> This category includes any health issues related to tuberculosis, malaria or diseases such as rabies, leprosy, foodborne trematodiases, lymphatic filariasis, dracunculiasis (Guinea-worm disease), sleeping sickness, chikunguya, etc.
+
+```{r}
+TB_malaria_keywords <- "tuberculosis|malaria| tb | tb,"
+
+NTD_keywords <- "buruli|chagas|dengue|chikungunya|dracunculiasis|echinococcosis|trematod|trypano|sleeping sickness|leishmaniasis|leprosy|leper|filariasis|mycetoma|chromoblastomycosis| noma |onchocerciasis|rabies|scabies|schistosomiasis|helminth|snakebite|snake|taenia|trachoma|yaws"
+```
+##### Vaccinations
+> This category refers to any health issues related to immunization, vaccines and pharmaceutical products.
+
+```{r}
+vaccinations_keywords <- "vaccin|immunisation|immunization"
+
+vaccinations_keywords_comb1a <- ""
+vaccinations_keywords_comb1b <- ""
+```
+
+##### WASH
+> This category is concerned with access to safe or clean drinking water and basic standards of sanitation, including drinking-water quality management, water supply and sanitation monitoring, cholera surveillance and prevention, water and sanitation in different settings, and water resources management.
+
+```{r}
+WASH_keywords <- "sanitation|safe water|drinking water|drinkable water|affordable water|clean water|access to water|toilet|cholera"
+
+WASH_keywords_comb1a <- ""
+WASH_keywords_comb1b <- ""
+```
+##### Nutrition
+> Recommendations relating to food were included when they referred to nutrition or diet-related concerns such as obesity, malnutrition or micronutrient supplementation.
+
+```{r}
+nutrition_keywords <- "hunger|food|nutrition|nutritious|diet|obesity|famine"
+
+nutrition_keywords_comb1a <- ""
+nutrition_keywords_comb1b <- ""
+```
+
+#### Separate definitions
+
+##### Health of incarcerated persons
+Recommendations related to the health and well-being of incarcerated persons. Only includes recommendations already linked to health
+```{r}
+incarcerated_keywords <- " prison|imprison|detention|detaine|incarcer"
+```
+
+
+##### Maternal health
+```{r}
+maternal_keywords <- "abortion|maternal|pregnan|reproductive|sex education|sexuality education|sex education|midwif|midwiv|antenatal|neonatal|prenatal|postnatal|birth atten|childbirth|eclampsia|obstetric|intrapartum|postpartum|post-partum|contracept|breastfe"
+```
+
+##### Abortion
+
+##### Family planning/Contraception
+```{r}
+contraception_keywords <- "contracept|birth control| iud |condom|family planning"
+
+contraception_keywords_comb1a <- "unintended pregnan"
+contraception_keywords_comb1b <- "prevent"
+```
+
+
+### Some terms to watch out for and consider for refining false positives:
+
+traffic / trafficking
+
+
+### Apply the definitions
+
+#### Theme labels
+```{r}
+source(here("code", "theme_labels.R"))
+```
+
+#### SDG datasat
+```{r}
+sdg_data <- sdg_data1 |> 
+  # Health systems and services
+  mutate(
+    health_systems = factor(case_when(
+      str_detect(tolower(text), hss_keywords) ~ "Health systems and services",
+      # Combo 1
+      str_detect(tolower(text), hss_keywords_comb1a)&
+        str_detect(tolower(text), hss_keywords_comb1b)~ "Health systems and services",
+      
+      # Combo 1
+      str_detect(tolower(text), hss_keywords_comb2a)&
+        str_detect(tolower(text), hss_keywords_comb2b)&
+        str_detect(tolower(text), hss_keywords_comb2c) ~ "Health systems and services",
+      
+      .default = "Other"
+    ), levels = c("Other", "Health systems and services"))
+  ) |> 
+  
+  # Health security, emergencies, and disaster relief
+  mutate(
+    emergencies = factor(case_when(
+      str_detect(tolower(text), emergencies_keywords) ~ "Health security, emergencies, and disaster relief",
+      # Combo 1
+      str_detect(tolower(text), emergencies_keywords_comb1a)&
+        str_detect(tolower(text), emergencies_keywords_comb1b)~ "Health security, emergencies, and disaster relief",
+      
+      .default = "Other"
+    ), levels = c("Other", "Health security, emergencies, and disaster relief"))
+  ) |> 
+  
+  # NCDs
+  mutate(
+    ncd = factor(case_when(
+      str_detect(tolower(text), ncd_keywords) ~ "NCDs",
+      # Combo 1
+      str_detect(tolower(text), ncd_keywords_comb1a)&
+        str_detect(tolower(text), ncd_keywords_comb1b)~ "NCDs",
+      
+      # Combo 2
+      str_detect(tolower(text), ncd_keywords_comb2a)&
+        str_detect(tolower(text), ncd_keywords_comb2b)~ "NCDs",
+      
+      .default = "Other"
+    ), levels = c("Other", "NCDs"))
+  ) |> 
+  
+  # Communicable diseases
+  mutate(
+    communicable = factor(case_when(
+      str_detect(tolower(text), communicable_keywords) ~ "Communicable diseases",
+      # Combo 1
+      str_detect(tolower(text), communicable_keywords_comb1a)&
+        # Indicate "!" to exclude these terms
+        !str_detect(tolower(text), communicable_keywords_comb1b) ~ "Communicable diseases",
+      
+      .default = "Other"
+    ), levels = c("Other", "Communicable diseases"))
+  ) |> 
+  
+  # SRHR
+  mutate(
+    SRHR = factor(case_when(
+      str_detect(tolower(text), srhr_keywords) ~ "SRHR",
+      # Combo 1
+      str_detect(tolower(text), srhr_keywords_comb1a)&
+        str_detect(tolower(text), srhr_keywords_comb1b)~ "SRHR",
+      
+      .default = "Other"
+    ), levels = c("Other", "SRHR"))
+  ) |> 
+  
+  # Mental health
+  mutate(
+    mental_health = factor(case_when(
+      str_detect(tolower(text), mental_keywords) ~ "Mental health",
+      # Combo 1
+      str_detect(tolower(text), mental_keywords_comb1a)&
+        str_detect(tolower(text), mental_keywords_comb1b)~ "Mental health",
+      
+      .default = "Other"
+    ), levels = c("Other", "Mental health"))
+  ) |> 
+  
+  # Social and economic determinants
+  
+  # GBV
+  mutate(
+    GBV = factor(case_when(
+      str_detect(tolower(text), GBV_keywords) ~ "GBV",
+      # Combo 1
+      str_detect(tolower(text), GBV_keywords_comb1a)&
+        str_detect(tolower(text), GBV_keywords_comb1b)~ "GBV",
+      # Combo 2
+      str_detect(tolower(text), GBV_keywords_comb2a)&
+        str_detect(tolower(text), GBV_keywords_comb2b)~ "GBV",
+      
+      # Combo 3
+      str_detect(tolower(text), GBV_keywords_comb3a)&
+        str_detect(tolower(text), GBV_keywords_comb3b)~ "GBV",
+      
+      .default = "Other"
+    ), levels = c("Other", "GBV"))
+  ) |> 
+  
+  # Maternal, child, and adolescent health (MCAH)
+  mutate(
+    MCAH = factor(case_when(
+      str_detect(tolower(text), MCAH_keywords) ~ "MCAH",
+      # Combo 1
+      str_detect(tolower(text), MCAH_keywords_comb1a)&
+        str_detect(tolower(text), MCAH_keywords_comb1b)~ "MCAH",
+      
+      # Combo 2
+      str_detect(tolower(text), MCAH_keywords_comb2a)&
+        str_detect(tolower(text), MCAH_keywords_comb2b)~ "MCAH",
+      
+      .default = "Other"
+    ), levels = c("Other", "MCAH"))
+  ) |> 
+  
+  # Essential medicines and health products
+  
+  # Disabilities and health
+  mutate(
+    disabilities = factor(case_when(
+      str_detect(tolower(text), disabilities_keywords) ~ "Disabilities and health",
+      # Combo 1
+      str_detect(tolower(text), disabilities_keywords_comb1a)&
+        str_detect(tolower(text), disabilities_keywords_comb1b)~ "Disabilities and health",
+      .default = "Other"), 
+      levels = c("Other", "Disabilities and health"))
+  ) |> 
+  
+  # Health of LGBTI persons
+  mutate(
+    LGBTI = factor(case_when(
+      str_detect(tolower(text), LGBTI_keywords) ~ "LGBTI",
+      # Combo 1
+      str_detect(tolower(text), LGBTI_keywords_comb1a)&
+        str_detect(tolower(text), LGBTI_keywords_comb1b)~ "LGBTI",
+      .default = "Other"), 
+      levels = c("Other", "LGBTI"))
+  ) |> 
+  
+  # HIV/AIDS and STIs
+  mutate(
+    HIV = factor(case_when(
+      str_detect(tolower(text), HIV_keywords) ~ "HIV",
+      .default = "Other"), 
+      levels = c("Other", "HIV"))
+  ) |> 
+  
+  # TB, malaria, and NTDs
+  mutate(
+    TB_malaria = factor(case_when(
+      str_detect(tolower(text), TB_malaria_keywords) ~ "TB and Malaria",
+      .default = "Other"), 
+      levels = c("Other", "TB and Malaria")),
+    NTD = factor(case_when(
+      str_detect(tolower(text), NTD_keywords) ~ "NTD",
+      .default = "Other"), 
+      levels = c("Other", "NTD")),
+    TB_malaria_NTD = factor(case_when(
+      if_any(c(TB_malaria, NTD), ~ .x != "Other") ~ "TB, malaria, and NTDs",
+      .default = "Other"),
+      levels = c("Other", "TB, malaria, and NTDs"))
+  ) |> 
+  
+  # Vaccinations
+  mutate(
+    vaccinations = factor(case_when(
+      str_detect(tolower(text), vaccinations_keywords) ~ "Vaccinations",
+      .default = "Other"), 
+      levels = c("Other", "Vaccinations"))
+  ) |> 
+  
+  # WASH
+  mutate(
+    WASH = factor(case_when(
+      str_detect(tolower(text), WASH_keywords) ~ "WASH",
+      .default = "Other"), 
+      levels = c("Other", "WASH"))
+  ) |> 
+  
+  # Nutrition
+  mutate(
+    nutrition = factor(case_when(
+      str_detect(tolower(text), nutrition_keywords) ~ "Nutrition",
+      # Combo 1
+      # str_detect(tolower(text), nutrition_keywords_comb1a)&
+      #   str_detect(tolower(text), nutrition_keywords_comb1b)~ "Nutrition",
+      
+      .default = "Other"
+    ), levels = c("Other", "Nutrition"))
+  ) |> 
+  
+  # Right to health
+  mutate(
+    health_related = factor(case_when(
+      
+      # recommendations that fall under other health-related themes
+      if_any(c(health_systems:nutrition), ~ .x != "Other") ~ "Health-related",
+      
+      # Based on keywords
+      str_detect(tolower(text), health_keywords)#| str_detect(tolower(sdg_goals), "health|sanitation")
+      # str_detect(targets, "5.6|16.1|16.2")
+      ~ "Health-related",
+      # Combo 1
+      str_detect(tolower(text), keywords_comb1a)&
+        str_detect(tolower(text), keywords_comb1b)~ "Health-related",
+      # Combo 2
+      str_detect(tolower(text), keywords_comb2a)&
+        str_detect(tolower(text), keywords_comb2b)~ "Health-related",
+      # Combo 3
+      str_detect(tolower(text), keywords_comb3a)&
+        str_detect(tolower(text), keywords_comb3b)~ "Health-related",
+      
+      .default = "Other"
+    ), levels = c("Other", "Health-related"))
+  ) |> 
+  
+  # Women's health
+  mutate(
+    women = factor(case_when(
+      str_detect(tolower(text), women_keywords) ~ "Women's health",
+      # Exclude recommendations related to GBV or SRHR
+      if_any(c(GBV, SRHR), ~ .x != "Other") ~ "Other",
+      # Combo 1
+      str_detect(tolower(text), women_keywords_comb1a)&
+        str_detect(tolower(text), women_keywords_comb1b)~ "Women's health",
+      # Assign health-related topics that relate to women
+      health_related == "Health-related" & 
+        str_detect(tolower(text), "women|woman") ~ "Women's health",
+      .default = "Other"
+    ), levels = c("Other", "Women's health"))
+  ) |> 
+  
+  # Abortion
+  mutate(
+    abortion = factor(case_when(
+      str_detect(tolower(text), "abortion") ~ "Abortion",
+      # Combo 1
+      str_detect(tolower(text), "interrup|terminat")&
+        str_detect(tolower(text), "pregnan")~ "Abortion",
+      .default = "Other"),
+      levels = c("Other", "Abortion"))) |> 
+  
+  # Family planning/Contraception
+  mutate(
+    contraception = factor(case_when(
+      str_detect(tolower(text), contraception_keywords) ~ "Contraception",
+      # Combo 1
+      str_detect(tolower(text), contraception_keywords_comb1a)&
+        str_detect(tolower(text), contraception_keywords_comb1b)~ "Contraception",
+      .default = "Other"), 
+      levels = c("Other", "Contraception"))
+  ) |> 
+  
+  # Incarcerated persons
+  mutate(
+    incarcerated = factor(case_when(
+      health_related == "Health-related" & 
+        str_detect(tolower(text), incarcerated_keywords) ~ "Incarcerated",
+      .default = "Other"),
+      levels = c("Other", "Incarcerated"))) |> 
+  
+  # Maternal health
+  mutate(
+    maternal_health = factor(case_when(
+      health_related == "Health-related" & 
+        (str_detect(tolower(text), maternal_keywords))
+      ~ "Maternal health",
+      abortion != "Other" ~ "Maternal health",
+      .default = "Other"
+    ), levels = c("Other", "Maternal health")
+    )
+  ) |> 
+  
+  # Update overall Right to Health classification
+  mutate(
+    health_related = factor(case_when(
+      if_any(c(women, abortion, maternal_health, contraception), ~ .x != "Other") ~ "Health-related",
+      .default = health_related),
+      levels = c("Other", "Health-related"))
+  )|> 
+  
+  # Update Health systems and services
+  mutate(
+    health_systems = factor(case_when(
+      health_related == "Health-related" & 
+        str_detect(tolower(text), hss_other_keywords) ~ "Health systems and services",
+      .default = health_systems),
+      levels = c("Other", "Health systems and services"))
+  ) |> 
+  
+  # Update SRHR
+  mutate(
+    SRHR = factor(case_when(
+      if_any(c(abortion, contraception), ~ .x != "Other") ~ "SRHR",
+      .default = SRHR),
+      levels = c("Other", "SRHR"))
+  )|> 
+  
+  # Reorder columns
+  relocate(health_systems:maternal_health, .after = text) |> 
+  relocate(health_related, .after = text)
+
+saveRDS(sdg_data, file = here("output", "SDG_data_enhanced__.rds"))
+```
+
+#### Number of recommendations
+```{r}
+#| message: false
+#| warning: false
+#| fig-width: 5
+#| fig-height: 4
+sdg_data |>
+  group_by(cycle) |>
+  summarise(
+    n = n(),
+    n_SuR = n_distinct(state_under_review),
+    n_rec_state = n_distinct(recommending_state_upr),
+    n_health = sum(health_related=="Health-related"),
+    n_not_health = sum(health_related == "Other")
+  ) |>
+  ggplot(aes(x = cycle, y = n))+
+  geom_col()+
+  labs(y = "Number of recommendations", x = "UPR Cycle", 
+       title = "Number of recommendations received by States",
+       fill = NULL)+
+  geom_text(aes(label = format(n, big.mark = ","), y = n, vjust =-0.2), size = 4)+
+  theme_bw()+
+  theme(panel.grid = element_blank(),
+        legend.position = "inside",
+        legend.position.inside = c(0,1),
+        legend.justification = c("left", "top"),
+        legend.background = element_blank())
+```
+
+
+Median number of recommendations per cycle
+```{r}
+#| fig-height: 5.5
+#| fig-width: 7
+#| message: false
+sdg_data |> 
+  group_by(cycle, state_under_review) |> 
+  count(health_related, .drop = FALSE) |> group_by(cycle, health_related) |> mutate(med_n = median(n)) |> 
+  select(cycle, health_related, med_n) |> distinct() |> 
+  group_by(cycle) |> 
+  mutate(n_tot = sum(med_n),
+         perc = (med_n/n_tot)*100,
+         perc = case_when(health_related == "Other" ~ "",
+                          .default = paste0(sprintf("%1.1f",perc), "%"))) |> 
+  ggplot(aes(x = cycle, y = med_n, fill = health_related))+
+  geom_bar(stat = "identity")+
+  labs(y = "Median number of recommendations", x = "UPR Cycle", 
+       title = "Median number of recommendations received by States, per UPR cycle",
+       fill = NULL)+
+  geom_text(aes(label = perc), position = position_stack(vjust = 0.5), size = 5)+
+  geom_text(aes(label = sprintf("%1.0f", n_tot), y = n_tot, vjust =-0.2), size = 5)+
+  theme_bw()+
+  theme(panel.grid = element_blank(),
+        axis.text.x = element_text(size = 18),
+        axis.title.x = element_blank(),
+        axis.title.y = element_text(size = 16),
+        legend.position = "inside",
+        legend.position.inside = c(0,1),
+        legend.justification = c("left", "top"),
+        legend.text = element_text(size = 14),
+        legend.background = element_blank())
+```
+
+Boxplots of number of recommendations
+```{r}
+#| message: false
+#| warning: false
+sdg_data |> 
+  group_by(cycle, state_under_review) |> 
+  count(health_related, .drop = FALSE) |> 
+  ungroup() |> 
+  ggplot(aes(x = cycle, y = n, fill =  health_related))+ 
+  labs(title = "Boxplots of the number of recommendations received by each state",
+       y = "Number of recommendations", color = NULL, fill = NULL, x = NULL)+
+  geom_jitter(aes(color = health_related), position = position_jitterdodge())+
+  geom_boxplot(outlier.shape = NA, alpha = 0.8, staplewidth = 0.5)+
+  # stat_summary(
+  #   fun = median, 
+  #   geom = "text", 
+  #   aes(label = after_stat(y)), 
+  #   position = position_dodge(0.75),
+  #   hjust = -2,
+  #   # nudge_x = -0.1,
+  #   # color = "black",
+  #   size = 3.5
+  # ) +
+  theme_bw()+
+  theme(legend.position = "bottom", panel.grid.major.x = element_blank())
+```
+
+##### By theme
+```{r}
+#| fig-height: 9.5
+#| fig-width: 8
+#| message: false
+
+a_1<-sdg_data |> 
+  # filter(state_under_review == "Nigeria") |> 
+  select(cycle, state_under_review, health_related:maternal_health, response_upr) |> 
+  # mutate(across(c(health_related:maternal_health), ~ .x != "Other")) |> 
+  group_by(cycle, response_upr) |> 
+  summarise(across(c(health_related:maternal_health), ~ sum(.x !="Other"))) |> 
+  ungroup() |> 
+  filter(response_upr %in% c("Supported", "Noted/Other")) |>
+  pivot_longer(cols = health_related:maternal_health, 
+               names_to = "theme", 
+               values_to = "n"
+  )
+
+a_2<-sdg_data |> 
+  # filter(state_under_review == "Nigeria") |> 
+  select(cycle, state_under_review, health_related:maternal_health, response_upr) |> 
+  # mutate(across(c(health_related:maternal_health), ~ .x != "Other")) |> 
+  group_by(cycle, response_upr) |> 
+  summarise(across(c(health_related:maternal_health), ~ sum(.x =="Other"))) |> 
+  ungroup() |> 
+  filter(response_upr %in% c("Supported", "Noted/Other")) |>
+  pivot_longer(cols = health_related:maternal_health, 
+               names_to = "theme", 
+               values_to = "n_other"
+  )
+
+a_3<-sdg_data |> 
+  # filter(state_under_review == "Nigeria") |> 
+  group_by(cycle) |> 
+  summarise(health_n = sum(health_related !="Other")) |> 
+  ungroup()
+
+a <- left_join(a_1,a_2) |> 
+  left_join(a_3) |> 
+  mutate(cycle = fct_recode(cycle, "1"="Cycle 1", "2"="Cycle 2", "3"="Cycle 3", "4"="Cycle 4")) |> 
+  group_by(cycle, theme) |> 
+  mutate(n_tot = sum(n)+sum(n_other)) |> 
+  mutate(n_tot_theme = sum(n)) |> 
+  mutate(perc = n/n_tot*100,
+         perc_theme = n_tot_theme/n_tot*100,
+         theme_perc_health = n_tot_theme/health_n*100) |> 
+  group_by(cycle, theme) |> 
+  mutate(n_sup = paste0("(", sprintf("%1.0f", n/sum(n)*100), "%)"),
+         n_sup = case_when(n_tot_theme == 0 ~ "(NA)", .default = n_sup)) |> 
+  # mutate(n_sup = case_when(
+  #   response_upr == "Noted/Other" ~ "",
+  #   response_upr == "Supported" ~ paste0("(", sprintf("%1.0f", n/sum(n)*100), "%)"),
+  #   .default = NA
+  # )) |> 
+  ungroup() |> 
+  filter(!theme %in% c(
+    "health_related"
+    # , "abortion"
+    , "TB_malaria", "NTD"
+    # , "TB_malaria_NTD"
+  )) |> 
+  left_join(theme_labels, join_by(theme == variable)) |> 
+  arrange(cycle, -n_tot_theme) |> 
+  mutate(theme_label = case_when(is.na(theme_label) ~ theme, .default = theme_label),
+         theme_label = fct_inorder(theme_label))
+
+max_a <- max(a$perc_theme)
+theme_plot <- a |> 
+  # mutate(n_tot_theme = case_when(response_upr!="Supported" ~ "", 
+  #                                .default = as.character(n_tot_theme))) |> 
+  ggplot(aes(x = perc, y = fct_rev(cycle)))+
+  geom_col(aes(fill = response_upr))+
+  facet_grid(
+    rows = vars(theme_label), switch = "y",
+    labeller = labeller(theme_label = label_wrap_gen(40))
+  )+
+  labs(x = "Proportion of all recommendations within the respective UPR cycle (%)", y = NULL,
+       fill = "State's response",
+       title = "Health-related recommendations in the first four cycles\nof the Universal Periodic Review",
+       caption = "*Numbers after the bars indicate N (% supported)")+
+  # theme_bw()+
+  theme_classic()+
+  # scale_y_discrete(expand = c(0.1, 0))+
+  scale_x_continuous(labels = function(x) paste0(x, "%"), 
+                     limits = c(0,max_a+2), 
+                     # sec.axis = dup_axis(name = NULL),
+                     expand = expansion(mult = c(0, 0.05)) # 0 exactly on axis
+  )+
+  theme(
+    legend.position = "inside",
+    legend.position.inside = c(0.75,0.5),
+    legend.justification = c("right", "center"),
+    legend.frame = element_rect(color = "black"),
+    axis.text.y = element_text(size = 6), 
+    plot.title = element_text(hjust = 0.5),
+    strip.placement = "outside",
+    strip.text.y.left = element_text(angle = 0, vjust = 1, size = 8),
+    # strip.background = element_blank()
+    panel.grid = element_blank()
+  )+
+  geom_text(
+    data = a |> filter(response_upr == "Supported"),
+    aes(label = paste0(n_tot_theme, " ", n_sup), x = perc_theme),
+    hjust = -0.15, size = 2.5 , vjust=0.25
+  ); theme_plot
+
+# ggsave(theme_plot, filename = "theme_plot.png", height = 9.5, width = 8)
+# 
+# a |> 
+#   filter(theme %in% c("SRHR", "abortion"), response_upr == "Supported") |> 
+#   select(cycle, theme, n_tot_theme, n_tot, perc_theme, health_n, theme_perc_health, n_sup) |> 
+#   mutate(n_sup = str_remove_all(n_sup, "\\(|\\%|\\)"),
+#          n_sup = as.numeric(n_sup)/100) |> 
+#   arrange(theme, cycle) |> 
+#   mutate(perc_theme = perc_theme/100, theme_perc_health = theme_perc_health/100) |> 
+#   rename(
+#     "UPR cycle" = cycle,
+# "Theme" = theme,
+# "Recommendations in theme" = n_tot_theme,
+# "Total recommendations" = n_tot,
+# "Health recommendations" = health_n,
+# "% of total recommendations" = perc_theme,
+# "% of health recommendations" = theme_perc_health,
+# "Percent of recommendations supported" = n_sup
+# )
+
+```
+
+
+```{r}
+#| fig-width: 13
+#| fig-height: 5
+p1<-a |> 
+  filter(!theme %in% c("health_related")) |> 
+  filter(theme %in% c(
+    # "GBV"
+    "maternal_health",
+    "abortion",
+    "contraception",
+    "SRHR"
+  )) |> 
+  # group_by(cycle, theme) |> 
+  ggplot(aes(x = cycle, y = perc, fill = response_upr))+
+  # scale_fill_manual(values = c("Noted/Other" = "#FFC300", "Supported" = "#5669f1"))+
+  labs(x = "UPR cycle", y = "% of total recommendations", 
+       fill = "State's response",
+       title = "Percent of total UPR recommendations by theme\nSupported % in brackets")+
+  geom_col()+
+  geom_text(aes(label = n_sup), size = 5, hjust = 0.5, color = "grey20", 
+            position = position_stack(vjust = 0.5))+
+  # geom_text(aes(label = n_sup, y = if_else(perc<1,1.6,perc/2)), size = 5, color = "white")+
+  # geom_text(aes(label = sprintf("%1.0f", n_tot_theme), y = sum(perc), vjust =-0.2), size = 5)+
+  facet_wrap(.~theme,
+             nrow = 1,
+             labeller = as_labeller(c("abortion" = "Abortion",
+                                      "GBV" = "Gender-based violence",
+                                      "contraception" = "Contraception/Family planning",
+                                      "maternal_health" = "Maternal health",
+                                      "SRHR" = "SRHR")))+
+  theme_bw()+
+  theme(panel.grid.minor.y = element_blank(),
+        panel.grid.major.x = element_blank(),
+        axis.text.x = element_text(size = 12),
+        axis.title.x = element_text(size=16),
+        axis.title.y = element_text(size = 16),
+        strip.text = element_text(size = 16),
+        plot.title = element_text(size = 16),
+        legend.position = "inside",
+        legend.position.inside = c(0,1),
+        legend.justification = c("left", "top"),
+        legend.title = element_text(size = 15),
+        legend.text = element_text(size = 14),
+        legend.background = element_blank())+
+  scale_y_continuous(sec.axis = dup_axis(name = NULL)
+                     # , limits = c(0,13)
+  );p1
+# ggsave("recommendations_by_theme.png", p1, width = 8, height = 4.5)
+# ggsave("recommendations_by_theme_gbv.png", p1, width = 9, height = 4)
+
+```

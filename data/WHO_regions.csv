@@ -1,0 +1,196 @@
+country,WHO_region,iso3
+Algeria,African Region (AFR),DZA
+Angola,African Region (AFR),AGO
+Benin,African Region (AFR),BEN
+Botswana,African Region (AFR),BWA
+Burkina Faso,African Region (AFR),BFA
+Burundi,African Region (AFR),BDI
+Cameroon,African Region (AFR),CMR
+Cape Verde,African Region (AFR),CPV
+Central African Republic,African Region (AFR),CAF
+Chad,African Region (AFR),TCD
+Comoros,African Region (AFR),COM
+Ivory Coast,African Region (AFR),CIV
+Democratic Republic of the Congo,African Region (AFR),COD
+Equatorial Guinea,African Region (AFR),GNQ
+Eritrea,African Region (AFR),ERI
+Ethiopia,African Region (AFR),ETH
+Gabon,African Region (AFR),GAB
+Gambia,African Region (AFR),GMB
+Ghana,African Region (AFR),GHA
+Guinea,African Region (AFR),GIN
+Guinea-Bissau,African Region (AFR),GNB
+Kenya,African Region (AFR),KEN
+Lesotho,African Region (AFR),LSO
+Liberia,African Region (AFR),LBR
+Madagascar,African Region (AFR),MDG
+Malawi,African Region (AFR),MWI
+Mali,African Region (AFR),MLI
+Mauritania,African Region (AFR),MRT
+Mauritius,African Region (AFR),MUS
+Mozambique,African Region (AFR),MOZ
+Namibia,African Region (AFR),NAM
+Niger,African Region (AFR),NER
+Nigeria,African Region (AFR),NGA
+Republic of the Congo,African Region (AFR),COG
+Rwanda,African Region (AFR),RWA
+São Tomé and Príncipe,African Region (AFR),STP
+Senegal,African Region (AFR),SEN
+Seychelles,African Region (AFR),SYC
+Sierra Leone,African Region (AFR),SLE
+South Africa,African Region (AFR),ZAF
+South Sudan,African Region (AFR),SSD
+Eswatini,African Region (AFR),SWZ
+Togo,African Region (AFR),TGO
+Uganda,African Region (AFR),UGA
+Tanzania,African Region (AFR),TZA
+Zambia,African Region (AFR),ZMB
+Zimbabwe,African Region (AFR),ZWE
+Antigua and Barbuda,Region of the Americas (AMR),ATG
+Argentina,Region of the Americas (AMR),ARG
+Bahamas,Region of the Americas (AMR),BHS
+Barbados,Region of the Americas (AMR),BRB
+Belize,Region of the Americas (AMR),BLZ
+Bolivia,Region of the Americas (AMR),BOL
+Brazil,Region of the Americas (AMR),BRA
+Canada,Region of the Americas (AMR),CAN
+Chile,Region of the Americas (AMR),CHL
+Colombia,Region of the Americas (AMR),COL
+Costa Rica,Region of the Americas (AMR),CRI
+Cuba,Region of the Americas (AMR),CUB
+Dominica,Region of the Americas (AMR),DMA
+Dominican Republic,Region of the Americas (AMR),DOM
+Ecuador,Region of the Americas (AMR),ECU
+El Salvador,Region of the Americas (AMR),SLV
+Grenada,Region of the Americas (AMR),GRD
+Guatemala,Region of the Americas (AMR),GTM
+Guyana,Region of the Americas (AMR),GUY
+Haiti,Region of the Americas (AMR),HTI
+Honduras,Region of the Americas (AMR),HND
+Jamaica,Region of the Americas (AMR),JAM
+Mexico,Region of the Americas (AMR),MEX
+Nicaragua,Region of the Americas (AMR),NIC
+Panama,Region of the Americas (AMR),PAN
+Paraguay,Region of the Americas (AMR),PRY
+Peru,Region of the Americas (AMR),PER
+Saint Kitts and Nevis,Region of the Americas (AMR),KNA
+Saint Lucia,Region of the Americas (AMR),LCA
+Saint Vincent and the Grenadines,Region of the Americas (AMR),VCT
+Suriname,Region of the Americas (AMR),SUR
+Trinidad and Tobago,Region of the Americas (AMR),TTO
+United States of America,Region of the Americas (AMR),USA
+Uruguay,Region of the Americas (AMR),URY
+Venezuela,Region of the Americas (AMR),VEN
+Bangladesh,South-East Asian Region (SEAR),BGD
+Bhutan,South-East Asian Region (SEAR),BTN
+Democratic People's Republic of Korea,South-East Asian Region (SEAR),PRK
+India,South-East Asian Region (SEAR),IND
+Maldives,South-East Asian Region (SEAR),MDV
+Myanmar,South-East Asian Region (SEAR),MMR
+Nepal,South-East Asian Region (SEAR),NPL
+Sri Lanka,South-East Asian Region (SEAR),LKA
+Thailand,South-East Asian Region (SEAR),THA
+Timor-Leste,South-East Asian Region (SEAR),TLS
+Albania,European Region (EUR),ALB
+Andorra,European Region (EUR),AND
+Armenia,European Region (EUR),ARM
+Austria,European Region (EUR),AUT
+Azerbaijan,European Region (EUR),AZE
+Belarus,European Region (EUR),BLR
+Belgium,European Region (EUR),BEL
+Bosnia and Herzegovina,European Region (EUR),BIH
+Bulgaria,European Region (EUR),BGR
+Croatia,European Region (EUR),HRV
+Cyprus,European Region (EUR),CYP
+Czech Republic,European Region (EUR),CZE
+Denmark,European Region (EUR),DNK
+Estonia,European Region (EUR),EST
+Finland,European Region (EUR),FIN
+France,European Region (EUR),FRA
+Georgia,European Region (EUR),GEO
+Germany,European Region (EUR),DEU
+Greece,European Region (EUR),GRC
+Hungary,European Region (EUR),HUN
+Iceland,European Region (EUR),ISL
+Ireland,European Region (EUR),IRL
+Israel,European Region (EUR),ISR
+Italy,European Region (EUR),ITA
+Kazakhstan,European Region (EUR),KAZ
+Kyrgyzstan,European Region (EUR),KGZ
+Latvia,European Region (EUR),LVA
+Lithuania,European Region (EUR),LTU
+Luxembourg,European Region (EUR),LUX
+Malta,European Region (EUR),MLT
+Moldova,European Region (EUR),MDA
+Monaco,European Region (EUR),MCO
+Montenegro,European Region (EUR),MNE
+Netherlands,European Region (EUR),NLD
+North Macedonia,European Region (EUR),MKD
+Norway,European Region (EUR),NOR
+Poland,European Region (EUR),POL
+Portugal,European Region (EUR),PRT
+Romania,European Region (EUR),ROU
+Russia,European Region (EUR),RUS
+San Marino,European Region (EUR),SMR
+Serbia,European Region (EUR),SRB
+Slovakia,European Region (EUR),SVK
+Slovenia,European Region (EUR),SVN
+Spain,European Region (EUR),ESP
+Sweden,European Region (EUR),SWE
+Switzerland,European Region (EUR),CHE
+Tajikistan,European Region (EUR),TJK
+Turkey,European Region (EUR),TUR
+Turkmenistan,European Region (EUR),TKM
+Ukraine,European Region (EUR),UKR
+United Kingdom,European Region (EUR),GBR
+Uzbekistan,European Region (EUR),UZB
+Afghanistan,Eastern Mediterranean Region (EMR),AFG
+Bahrain,Eastern Mediterranean Region (EMR),BHR
+Djibouti,Eastern Mediterranean Region (EMR),DJI
+Egypt,Eastern Mediterranean Region (EMR),EGY
+Iran,Eastern Mediterranean Region (EMR),IRN
+Iraq,Eastern Mediterranean Region (EMR),IRQ
+Jordan,Eastern Mediterranean Region (EMR),JOR
+Kuwait,Eastern Mediterranean Region (EMR),KWT
+Lebanon,Eastern Mediterranean Region (EMR),LBN
+Libya,Eastern Mediterranean Region (EMR),LBY
+Morocco,Eastern Mediterranean Region (EMR),MAR
+Oman,Eastern Mediterranean Region (EMR),OMN
+Pakistan,Eastern Mediterranean Region (EMR),PAK
+Qatar,Eastern Mediterranean Region (EMR),QAT
+Saudi Arabia,Eastern Mediterranean Region (EMR),SAU
+Somalia,Eastern Mediterranean Region (EMR),SOM
+Sudan,Eastern Mediterranean Region (EMR),SDN
+Syria,Eastern Mediterranean Region (EMR),SYR
+Tunisia,Eastern Mediterranean Region (EMR),TUN
+United Arab Emirates,Eastern Mediterranean Region (EMR),ARE
+Yemen,Eastern Mediterranean Region (EMR),YEM
+Australia,Western Pacific Region (WPR),AUS
+Brunei,Western Pacific Region (WPR),BRN
+Cambodia,Western Pacific Region (WPR),KHM
+China,Western Pacific Region (WPR),CHN
+Cook Islands,Western Pacific Region (WPR),COK
+Fiji,Western Pacific Region (WPR),FJI
+Indonesia,Western Pacific Region (WPR),IDN
+Japan,Western Pacific Region (WPR),JPN
+Kiribati,Western Pacific Region (WPR),KIR
+Laos,Western Pacific Region (WPR),LAO
+Malaysia,Western Pacific Region (WPR),MYS
+Marshall Islands,Western Pacific Region (WPR),MHL
+Micronesia,Western Pacific Region (WPR),FSM
+Mongolia,Western Pacific Region (WPR),MNG
+Nauru,Western Pacific Region (WPR),NRU
+New Zealand,Western Pacific Region (WPR),NZL
+Niue,Western Pacific Region (WPR),NIU
+Palau,Western Pacific Region (WPR),PLW
+Papua New Guinea,Western Pacific Region (WPR),PNG
+Philippines,Western Pacific Region (WPR),PHL
+Samoa,Western Pacific Region (WPR),WSM
+Singapore,Western Pacific Region (WPR),SGP
+Solomon Islands,Western Pacific Region (WPR),SLB
+South Korea,Western Pacific Region (WPR),KOR
+Taiwan,Western Pacific Region (WPR),TWN
+Tonga,Western Pacific Region (WPR),TON
+Tuvalu,Western Pacific Region (WPR),TUV
+Vanuatu,Western Pacific Region (WPR),VUT
+Vietnam,Western Pacific Region (WPR),VNM
