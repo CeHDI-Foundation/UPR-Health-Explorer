@@ -7,11 +7,11 @@ source(here("data", "UPR_WG_docs", "extract_recs_function.R"))
 
 # Run the extract function for each country as needed
 extract_upr_recs(
-  input = "https://www.ohchr.org/sites/default/files/documents/hrbodies/upr/sessions/session50/hnd/upr50-honduras-thematic-list-recommendatio.docx",
-  state_under_review = "Honduras", 
-  upr_session = 50, 
-  document_symbol = "A/HRC/61/12",
-  provisional = FALSE, 
+  input = "https://docs.un.org/en/A/HRC/62/14",
+  state_under_review = "Georgia", 
+  upr_session = 51, 
+  document_symbol = "A/HRC/62/14",
+  provisional = TRUE, 
   mode = "auto", 
   output_dir = here("data", "UPR_WG_docs", "extracted_recs")
 )

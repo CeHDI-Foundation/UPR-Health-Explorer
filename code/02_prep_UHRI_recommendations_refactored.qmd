@@ -407,7 +407,7 @@ upr_df <- df |>
   # Drop non-recommendation rows.
   filter(
     !str_starts(text, "Response of "),
-    response_upr != "Concerns/Observations"
+    is.na(response_upr) | response_upr != "Concerns/Observations"
   ) |>
   rowid_to_column() |>
   # Comma- and semicolon-separated renderings of the recommending-state list.
