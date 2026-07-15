@@ -867,8 +867,8 @@ ui <- page_navbar(
                             "Sub-regions (UN M49)",
                             # "ECSA-HC Membership", 
                             "CARICOM Membership",
-                            # "South Centre Membership", 
-                            # "OACPS Membership", "OACPS Member regions", 
+                            "South Centre Membership",
+                            "OACPS Membership", "OACPS Member regions",
                             "COMESA Membership",
                             "Fragile and Conflict-affected States (2026)"
                 ),
