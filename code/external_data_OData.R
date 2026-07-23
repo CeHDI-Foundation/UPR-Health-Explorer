@@ -793,6 +793,25 @@ HPV_coverage <- gho_api$path("SDGHPVRECEIVED")$retrieve()$value |> tibble() |>
     year = ymd(paste0(YEAR, "-01-01"))
   )
 
+#### Prevalence of cervical cancer screening ####
+
+HPV_screening <- gho_api$path("NCD_CXCA_SCREENED_WITHIN_TIMEPERIOD")$retrieve()$value |> tibble() |> 
+  mutate(
+    COUNTRY = case_when(SpatialDimType == "COUNTRY" ~ SpatialDim),
+    REGION = case_when(SpatialDimType %in% c("REGION", "GLOBAL")~SpatialDim),
+    WORLDBANKINCOMEGROUP = case_when(SpatialDimType %in% c("WORLDBANKINCOMEGROUP", "GLOBAL")~SpatialDim)
+  ) |> 
+  left_join(gho_indicators) |> 
+  left_join(country_codes) |> 
+  left_join(region_codes) |> 
+  left_join(WB_income_codes) |> 
+  rename(YEAR = TimeDim)|> 
+  mutate(
+    # NumericValue = as.numeric(NumericValue),
+    across(c(NumericValue:High), ~ as.numeric(.x)),
+    year = ymd(paste0(YEAR, "-01-01"))
+  ) 
+
 ### DPT3 ---------------------
 DTP3_coverage <- gho_api$path("WHS4_100")$retrieve()$value |> tibble() |> 
   mutate(
