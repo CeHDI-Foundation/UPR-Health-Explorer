@@ -182,5 +182,52 @@ maternal_disorders_deaths_longitudinal <- readRDS(here("data", "GBD", "maternal_
 # See also Cresswell et al. for more background on causes of maternal deaths:  
 #   Cresswell, Jenny A, Monica Alexander, Michael Y C Chong, Heather M Link, Marija Pejchinovska, Ursula Gazeley, Sahar M A Ahmed, et al. “Global and Regional Causes of Maternal Deaths 2009–20: A WHO Systematic Analysis.” The Lancet Global Health 13, no. 4 (April 2025): e626–34. <https://doi.org/10.1016/S2214-109X(24)00560-6>.
 
+# Global Burden of Disease Study 2023 (GBD 2023) Results.
+# Seattle, United States: Institute for Health Metrics and Evaluation (IHME), 2024.
+# Available from https://vizhub.healthdata.org/gbd-results/.
+
+# ### Cervical Health #####
+# 
+# ## Cervical health - Death and DALYs ####
+# # **Query:**
+# # 
+# #   **GBD estimate:** Cause of death or injury
+# # **Measure:** Deaths; DALYs
+# # **Metric:** Rate (# of death per 100'000 women)
+# # **Cause:** Cervical cancer, Benign and in situ cervical and uterine neoplasms
+# # **Location:** All countries and territories
+# # **Age:** Age-standardized;
+# # **Sex:** Female
+# # **Year:** Select all
+# # 
+# # This query generated a CSV file that I split by Deaths and DALYs and saved in RDS format in order to save diskspace.
+# cervical_cancer <-
+#   # List the filenames of each CSV file in the folder
+#   list.files(path = here("data", "GBD", "cervical_health"),
+#              pattern = "\\.csv$",
+#              full.names = TRUE) |>
+#   # Read them in using data.table::fread()
+#   data.table::fread()|>
+#   # Clean the names
+#   janitor::clean_names() |>
+#   # Format variables
+#   mutate(
+#     across(c(measure_name, location_name, sex_name,
+#                   cause_name, metric_name), as.factor),
+#     date = ymd(paste0(year, "-01-01"))
+#     )
+# 
+# # Split the file by measure
+# cervical_cancer_DALY <- cervical_cancer |> filter(measure_id == 2)
+# cervical_cancer_deaths <- cervical_cancer |> filter(measure_id == 1)
+# 
+# # # Save as RDS
+# saveRDS(cervical_cancer_DALY, file = here("data", "GBD", "cervical_health", "cervical_cancer_DALY.rds"))
+# saveRDS(cervical_cancer_deaths, file = here("data", "GBD", "cervical_health", "cervical_cancer_deaths.rds"))
+
+cervical_cancer_deaths <- readRDS(here("data", "GBD", "cervical_health", "cervical_cancer_deaths.rds")) |> 
+  mutate(location_name = if_else(location_name == "United Kingdom", "United Kingdom of Great Britain and Northern Ireland", location_name))
+
+
 # Remove unused objects ---------------
 rm(country_list)
