@@ -1241,6 +1241,28 @@ Under the Right to Health, States have the following obligations:
               card(full_screen = TRUE, card_header("UHC indices over time"), plotOutput("UHC_trend"))
             )
   ),
+  
+  ### Cervical health ------------------------------
+  
+  nav_panel(title = "Cervical Health", icon = icon("ribbon"),
+            layout_columns(card(
+              card_header("Cervical Cancer Mortality (per 100,000 women)"),
+              markdown("Data: <a href='https://vizhub.healthdata.org/gbd-results/?params=gbd-api-2023-public/f68172d51927f14d97fe06a2caf6cc5b' target='_blank'>GBD (2023)</a>"),
+              leafletOutput("ccmortality_map_interactive"),
+              plotlyOutput("ccmr_trend")
+            ),
+            navset_card_tab(
+              full_screen = TRUE,
+              nav_panel("HPV Vaccination Coverage",
+                        markdown("Data: <a href='https://www.who.int/data/gho/info/gho-odata-api' target='_blank'>WHO GHO</a>"),
+                        leafletOutput("hpv_coverage_map_interactive")
+              ),
+              nav_panel("Cervical Screening Coverage",
+                        markdown("Prevalence of cervical cancer screening among women aged 30-49, **2019 estimate** (pre-pandemic baseline). Data: <a href='https://www.who.int/data/gho/info/gho-odata-api' target='_blank'>WHO GHO</a>"),
+                        leafletOutput("screening_coverage_map_interactive")
+              )
+            ))
+  ),
   ### Maternal health ------------------------------
   nav_menu(title = "Maternal health", icon = icon("person-pregnant"),
            #### Maternal mortality -----------------------
@@ -2487,6 +2509,141 @@ server <- function(input, output, session) {
       guides(color=guide_legend(nrow=2,byrow=TRUE))
   })
   
+  ## Cervical health outputs --------------------------------
+
+  ### Cervical cancer mortality rate map -------
+  
+  output$ccmortality_map_interactive <- renderLeaflet({
+    
+    ccmr_data <- cervical_cancer_deaths |> 
+      filter(year==2023) |> 
+      right_join(state_geo_reactive(), by=join_by(location_name==country)) |> 
+      mutate(selected_sur = case_when(location_name == input$selected_SUR ~ TRUE, .default = FALSE)) |> 
+      st_as_sf() |> 
+      st_set_geometry("polygon")
+    
+    pal <- colorNumeric(
+      palette = "YlOrRd"
+      , domain = NULL
+    )
+    
+    hover_labels <- sprintf(
+      "<strong>%s</strong><br/>Cervical cancer <br/> mortality rate in 2023: %s",
+      ccmr_data$location_name,
+      sprintf("%.2f", ccmr_data$val) 
+    ) %>% lapply(htmltools::HTML)
+    
+    leaflet_function(data =  ccmr_data, pal_object = pal, hover_labels = hover_labels, 
+                     legend_title = "Deaths per <br/> 100,000 women",
+                     coord_selected_SUR = coord_selected_SUR(),
+                     zoom_level = m_zoom(),
+                     fill_outcome =  "val")
+    
+  })
+  
+  ### Cervical cancer mortality trend (single country) -------
+  
+  ccmr_trend_object <- reactive({
+    req(input$selected_SUR)
+    
+    dat_plot <- cervical_cancer_deaths |>
+      filter(location_name == input$selected_SUR)
+    
+    # Vaccine introduction year for the selected country, if known
+    intro_year <- HPV_national_alt |>
+      filter(ISO_3_CODE == state_geo_reactive() |>
+               filter(country == input$selected_SUR) |> pull(iso3)) |>
+      pull(year_intr)
+    
+    intro_year <- if (length(intro_year) == 0 || is.infinite(intro_year)) NA else intro_year
+    
+    p <- dat_plot |>
+      ggplot(aes(x = year, y = val, group = 1,
+                 text = paste0(input$selected_SUR, " - ", year, ": ", sprintf("%.2f", val)))) +
+      geom_ribbon(aes(ymin = lower, ymax = upper), fill = "tomato3", color = NA, alpha = 0.15) +
+      geom_line(color = "tomato3", linewidth = 1.2) +
+      labs(
+        x = NULL,
+        y = "Cervical cancer mortality rate\n(age-standardized, per 100,000 women)",
+        title = paste0("Trends in cervical cancer mortality — ", input$selected_SUR)
+      ) +
+      theme_bw() +
+      theme(
+        panel.grid.minor = element_blank(),
+        plot.title = ggtext::element_textbox_simple(margin = margin(t = 5, b = 10, unit = "pt"))
+      )
+    
+    if (!is.na(intro_year)) {
+      p <- p + geom_vline(xintercept = intro_year, linetype = "dashed", color = "steelblue4")
+    }
+    
+    p
+  })
+  
+  output$ccmr_trend <- renderPlotly({
+    ggplotly(ccmr_trend_object(), tooltip = "text") |>
+      plotly::layout(
+        plot_bgcolor = 'rgba(0,0,0,0)',
+        margin = list(l = 0, r = 20, b = 40, t = 40)
+      )
+  })
+  
+  ###  HPV Vaccination coverage Interactive Map -------------------
+  output$hpv_coverage_map_interactive <- renderLeaflet({
+    
+    hpv_dat <- HPV_coverage |>
+      filter(!is.na(COUNTRY)) |>
+      group_by(COUNTRY) |>
+      slice_max(order_by = year, n = 1) |>
+      ungroup() |>
+      left_join(HPV_national_alt |> select(ISO_3_CODE, INTRO_text),
+                by = c("COUNTRY" = "ISO_3_CODE")) |>
+      right_join(state_geo_reactive(), by = c("COUNTRY" = "iso3")) |>
+      mutate(selected_sur = case_when(country == input$selected_SUR ~ TRUE, .default = FALSE)) |>
+      st_as_sf() |>
+      st_set_geometry("polygon")
+    
+    pal <- colorNumeric(palette = "RdYlBu", domain = NULL)
+    
+    hover_labels <- sprintf(
+      "<strong>%s</strong><br/>Coverage: %s%% (%s)<br/>%s",
+      hpv_dat$country,
+      format(hpv_dat$Value, big.mark = ",", scientific = FALSE),
+      hpv_dat$YEAR,
+      hpv_dat$INTRO_text
+    ) %>% lapply(htmltools::HTML)
+    
+    leaflet_function(data = hpv_dat, pal_object = pal, hover_labels = hover_labels,
+                     legend_title = "Coverage (%)",
+                     coord_selected_SUR = coord_selected_SUR(),
+                     zoom_level = m_zoom(),
+                     fill_outcome = "NumericValue")
+  })
+  
+
+  ### HPV Screening coverage Interactive Map -------------------
+  output$screening_coverage_map_interactive <- renderLeaflet({
+    
+    screening_dat <- HPV_screening |>
+      right_join(state_geo_reactive(), by = c("COUNTRY" = "iso3")) |>
+      mutate(selected_sur = case_when(country == input$selected_SUR ~ TRUE, .default = FALSE)) |>
+      st_as_sf() |>
+      st_set_geometry("polygon")
+    
+    pal <- colorNumeric(palette = "RdYlBu", domain = NULL)
+    
+    hover_labels <- sprintf(
+      "<strong>%s</strong><br/>Screening coverage (2019): %s%%",
+      screening_dat$country,
+      format(screening_dat$Value, big.mark = ",", scientific = FALSE)
+    ) %>% lapply(htmltools::HTML)
+    
+    leaflet_function(data = screening_dat, pal_object = pal, hover_labels = hover_labels,
+                     legend_title = "Coverage (%)",
+                     coord_selected_SUR = coord_selected_SUR(),
+                     zoom_level = m_zoom(),
+                     fill_outcome = "NumericValue")
+  })
   ## Maternal health outputs --------------------------------
   
   ### MMR Outputs -------------------------------------------------------------
