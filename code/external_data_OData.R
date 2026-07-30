@@ -831,7 +831,7 @@ DTP3_coverage <- gho_api$path("WHS4_100")$retrieve()$value |> tibble() |>
   )
 
 # Alternative HPV program data ####
-# Introduction of HPV vaccine
+## Introduction of HPV vaccine ####
 # https://immunizationdata.who.int/global/wiise-detail-page/introduction-of-hpv-(human-papilloma-virus)-vaccine?ISO_3_CODE=&YEAR=
 # Accessed on 30.07.2026
 HPV_national_alt <- read_xlsx(here("data", "HPV_introduction.xlsx"), sheet = "Sheet1")
@@ -863,7 +863,7 @@ HPV_national_alt <- HPV_national_alt |> group_by(ISO_3_CODE) |>
     .default = "Data not available"
   ))
 
-# HPV vaccination coverage
+## HPV vaccination coverage ####
 # Data base accessed on 30.07.2026, updated annually mid-July
 # https://immunizationdata.who.int/global/wiise-detail-page/human-papillomavirus-(hpv)-vaccination-coverage?GROUP=Countries&CODE=Global&ANTIGEN=15HPV1_F+15HPVC_F&YEAR=
 

@@ -195,7 +195,7 @@ maternal_disorders_deaths_longitudinal <- readRDS(here("data", "GBD", "maternal_
 # # **Measure:** Deaths; DALYs
 # # **Metric:** Rate (# of death per 100'000 women)
 # # **Cause:** Cervical cancer, Benign and in situ cervical and uterine neoplasms
-# # **Location:** All countries and territories
+# # **Location:** All countries and territories, Global
 # # **Age:** Age-standardized;
 # # **Sex:** Female
 # # **Year:** Select all
