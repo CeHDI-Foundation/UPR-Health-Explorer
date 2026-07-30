@@ -831,8 +831,9 @@ DTP3_coverage <- gho_api$path("WHS4_100")$retrieve()$value |> tibble() |>
   )
 
 # Alternative HPV program data ####
+# Introduction of HPV vaccine
 # https://immunizationdata.who.int/global/wiise-detail-page/introduction-of-hpv-(human-papilloma-virus)-vaccine?ISO_3_CODE=&YEAR=
-# Accessed on 10.10.2025
+# Accessed on 30.07.2026
 HPV_national_alt <- read_xlsx(here("data", "HPV_introduction.xlsx"), sheet = "Sheet1")
 HPV_national_alt <- HPV_national_alt |> group_by(ISO_3_CODE) |> 
   summarise(
@@ -862,6 +863,25 @@ HPV_national_alt <- HPV_national_alt |> group_by(ISO_3_CODE) |>
     .default = "Data not available"
   ))
 
+# HPV vaccination coverage
+# Data base accessed on 30.07.2026, updated annually mid-July
+# https://immunizationdata.who.int/global/wiise-detail-page/human-papillomavirus-(hpv)-vaccination-coverage?GROUP=Countries&CODE=Global&ANTIGEN=15HPV1_F+15HPVC_F&YEAR=
+
+HPV_coverage_alt <- read_xlsx(here("data", "HPV_coverage_alt.xlsx"), sheet = "Sheet1") |> 
+  janitor::clean_names() |> 
+  rename(iso3=code) |>
+  filter(!str_detect(group, "^Exported")) |> 
+  mutate(antigen_dose = case_when(antigen == "15HPVC_F" ~ "First dose",
+                                  antigen == "15HPV1_F" ~ "Full recommended schedule"))
+
+
+HPV_coverage_alt_wide <- HPV_coverage_alt |>
+  filter(group == "COUNTRIES") |>
+  select(iso3, name, year, antigen_dose, coverage) |>
+  pivot_wider(
+    names_from = antigen_dose,
+    values_from = coverage
+  )
 
 # NMIRF status -------------------------------
 # Data extracted from Annex 02 of URG's report https://www.universal-rights.org/urg-policy-reports/the-emergence-and-evolution-of-national-mechanisms-for-implementation-reporting-and-follow-up/
