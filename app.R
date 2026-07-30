@@ -2645,7 +2645,7 @@ server <- function(input, output, session) {
   ###  HPV Vaccination coverage Interactive Map -------------------
   output$hpv_coverage_map_interactive <- renderLeaflet({
     
-    hpv_dat <- HPV_coverage_wide |>
+    hpv_dat <- HPV_coverage_alt_wide |>
       group_by(iso3) |>
       slice_max(order_by = year, n = 1, with_ties = FALSE) |>
       ungroup() |>
@@ -2661,9 +2661,9 @@ server <- function(input, output, session) {
     hover_labels <- sprintf(
       "<strong>%s</strong><br/>Fully vaccinated: %s%% (%s)<br/>At least 1 dose: %s%%<br/>%s",
       hpv_dat$country,
-      ifelse(is.na(hpv_dat$cov_PRHPVC_F), "No data", sprintf("%.0f", hpv_dat$cov_PRHPVC_F)),
+      ifelse(is.na(hpv_dat$`Full recommended schedule`), "No data", sprintf("%.0f", hpv_dat$`Full recommended schedule`)),
       hpv_dat$year,
-      ifelse(is.na(hpv_dat$cov_PRHPV1_F), "No data", sprintf("%.0f", hpv_dat$cov_PRHPV1_F)),
+      ifelse(is.na(hpv_dat$`First dose`), "No data", sprintf("%.0f", hpv_dat$`First dose`)),
       coalesce(hpv_dat$INTRO_text, "Introduction status unknown")
     ) %>% lapply(htmltools::HTML)
     
@@ -2671,7 +2671,7 @@ server <- function(input, output, session) {
                      legend_title = "%",
                      coord_selected_SUR = coord_selected_SUR(),
                      zoom_level = m_zoom(),
-                     fill_outcome = "cov_PRHPVC_F")
+                     fill_outcome = "Full recommended schedule")
   })
   
 
