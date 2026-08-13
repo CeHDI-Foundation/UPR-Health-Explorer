@@ -222,7 +222,16 @@ leaflet_function <- function(data, pal_object, fill_outcome, hover_labels, legen
       bins=bins_num,
       title = legend_title,
       position = "bottomright"
-    )
+    ) |> 
+    htmlwidgets::onRender("
+      function(el, x) {
+        var map = this;
+        var lockedCenter = map.getCenter();
+        map.on('zoomend', function() {
+          map.panTo(lockedCenter, { animate: true });
+        });
+      }
+    ")
 }
 
 ## UPR helper functions ------------------------------------------
@@ -852,7 +861,7 @@ ui <- page_navbar(
         min-width: 200px;       /* Set a minimum for good measure */
       }
     "))
-  ),
+),
   
   
   ## Sidebar for Controls ----------------------------------------------------
@@ -1242,53 +1251,129 @@ Under the Right to Health, States have the following obligations:
             )
   ),
   
- ### Cervical health ------------------------------
+  ### Cervical Cancer ------------------------------
+  nav_menu(title = "Cervical Cancer", icon = icon("ribbon"),
+           
+           #### Sub-page 1: Overview -----------------------------------
+           nav_panel(
+             title = "About Cervical Cancer",
+             fillable = FALSE,
+             
+             card(
+               fill = FALSE,
+               card_header("About Cervical Cancer"),
+               markdown(
+                 "- With consistent HPV vaccination and screening, most cervical cancer cases can be prevented outright, and cases caught early respond well to treatment.
+                  - Worldwide, it's the **fifth most common cancer diagnosed in women**.
+                  - The underlying cause is **persistent HPV infection**. Because HIV weakens the immune system's ability to clear the virus, women living with HIV face roughly **6 times the risk** of developing cervical cancer.
+                  
+                  *Source: [WHO, Cervical cancer fact sheet](https://www.who.int/news-room/fact-sheets/detail/cervical-cancer)*"
+                                 )
+                               ),
+                               
+                               card(
+                                 fill = FALSE,
+                                 card_header("WHO's Global Strategy to Eliminate Cervical Cancer"),
+                                 markdown(
+                                   "WHO has set a global roadmap known as **90–70–90**, with milestones for 2030:
+                  
+                  - **90%** of girls fully vaccinated against HPV by age 15
+                  - **70%** of women screened with a high-quality test by ages 35 and 45
+                  - **90%** of women found to have pre-cancerous or cancerous cervical disease given proper treatment
+                  
+                  Hitting these three targets and holding them would put elimination of cervical cancer as a public health threat within reach this century.
+                  
+                  *Source: [WHO, Cervical cancer fact sheet](https://www.who.int/news-room/fact-sheets/detail/cervical-cancer)*"
+                                 )
+                               )
+                             ),
+           
+           #### Sub-page 2: Mortality -----------------------------------
+           nav_panel(
+             title = "Mortality Rate",
+             layout_columns(
+               # col_widths = breakpoints(sm = c(12, 12), md = c(6, 6)),
+               
+               ##### Left: map + trend -------------------------------------------
+               card(full_screen = TRUE,
+                    card_header("Cervical Cancer Mortality Rate"),
+                    markdown("Age-standardized mortality rate per 100,000 women.
+  
+  Data: <a href='https://vizhub.healthdata.org/gbd-results/?params=gbd-api-2023-public/f68172d51927f14d97fe06a2caf6cc5b' target='_blank'>GBD (2023)</a>"),
+                    leafletOutput("ccmortality_map_interactive"),
+               ),
+               
+               ##### Right: explanation -------------------------------------------
+               card(full_screen = TRUE,
+                    card_header("Historical Cervical Cancer Mortality Rate"),
+                 markdown(
+                   "The dashed vertical line on the trend chart below, when shown, marks the year the selected country introduced HPV vaccination into its national immunization program."
+                 ),
+                 plotlyOutput("ccmr_trend"),
+               )
+             )
+           ),
+           
+           ##### Tab 2: HPV Vaccination -----------------------------------
+           nav_panel(
+             title = "HPV Vaccination",
+             layout_columns(
+               card(full_screen = TRUE,
+                    card_header("HPV Vaccination Coverage (2025)"),
+                    leafletOutput("hpv_coverage_map_interactive", height = "400px")
+               ),
+               card(fill = FALSE,
+                    card_header(shiny::icon("circle-info")),
+                    markdown(
+                      "**HPV Vaccination Coverage (%)**: Coverage of girls fully vaccinated against HPV by age 15 (final dose of the recommended schedule).
 
-nav_panel(title = "Cervical Health", icon = icon("ribbon"),
-  layout_columns(
-      card(card_header("Mortality Rate for Cervical Cancer"),
-        markdown("The mortality rate is expressed by the number of death due to cervical cancer per 100,000 women.
-                 
-                 Data: <a href='https://vizhub.healthdata.org/gbd-results/?params=gbd-api-2023-public/f68172d51927f14d97fe06a2caf6cc5b' target='_blank'>GBD (2023)</a>"),
-        leafletOutput("ccmortality_map_interactive"),
-        plotlyOutput("ccmr_trend")
-      ),
-    layout_columns(
-      navset_card_tab(full_screen = TRUE,
-        nav_panel("HPV Vaccination",
-          markdown("Coverage (%) of women who received the final dose of HPV vaccine.
+As of 2025, 32 countries had not reported a vaccination coverage level and are shown as no data on the map.
+
+- **Fully vaccinated**: completion of the recommended schedule, one or two doses depending on the national schedule in place.
+- **At least 1 dose**: girls who received at least one dose of the HPV vaccine by age 15, whether or not they completed the full recommended schedule.
+
+Data: <a href='https://immunizationdata.who.int/global/wiise-detail-page/human-papillomavirus-(hpv)-vaccination-coverage?CODE=Global&GROUP=Countries&ANTIGEN=&YEAR=' target='_blank'>WHO — HPV vaccination coverage</a> and <a href='https://immunizationdata.who.int/global/wiise-detail-page/introduction-of-hpv-(human-papilloma-virus)-vaccine?ISO_3_CODE=&YEAR=' target='_blank'>WHO — HPV vaccine introduction status</a>"
+                    )
+               )
+             )
+           ),
+           
+           #### Sub-page 4: Cervical Screening -----------------------------------
+           nav_panel(
+             title = "Cervical Cancer Screening",
+             layout_columns(
+               card(full_screen = TRUE,
+                    card_header(
+                      div(class = "d-flex justify-content-between align-items-center flex-wrap gap-2",
+                          span("Cervical Screening Coverage (2019)"),
+                          selectInput(
+                            "screening_period", NULL,
+                            choices = c(
+                              "Lifetime (ever screened)" = "TIMEPERIOD_TIMEPERIOD_EVER_LIFETIME",
+                              "Last 5 years"             = "TIMEPERIOD_TIMEPERIOD_LAST05YEARS",
+                              "Last 3 years"             = "TIMEPERIOD_TIMEPERIOD_LAST03YEARS",
+                              "Last year"                = "TIMEPERIOD_TIMEPERIOD_LAST01YEAR"
+                            ),
+                            selected = "TIMEPERIOD_TIMEPERIOD_LAST05YEARS",
+                            width = "220px"
+                          )
+                      )
+                    ),
+                    leafletOutput("screening_coverage_map_interactive", height = "400px")
+               ),
+               card( fill = FALSE,
+                 card_header(shiny::icon("circle-info")),
+                 markdown(
+                   "**Cervical Cancer Screening Coverage (%)**: Percentage of women aged 30–49 who report being screened for cervical cancer, using any WHO-recognized test : HPV DNA testing, cytology, or visual inspection with acetic acid (VIA). 
                    
-                   Data: <a href='https://immunizationdata.who.int/global?topic=&location=' target='_blank'>WHO</a>"),
-          leafletOutput("hpv_coverage_map_interactive")
-        ),
-        nav_panel(
-          shiny::icon("circle-info"),
-          markdown(
-            "WHO's 2030 target: **90% of girls fully vaccinated** against HPV by age 15.
+Note: this indicator captures screening with *any* test type; the 70% target specifically calls for a *high-performance* (HPV DNA) test, so raw coverage shown here may somewhat overstate progress toward that specific target.
 
-'At least 1 dose' reflects program reach; 'fully vaccinated' reflects the recommended full schedule."
-          )
-        )
-      ),
-      navset_card_tab(full_screen = TRUE,
-        nav_panel("Cervical Screening",
-          markdown("Screening coverage (%), women aged 30-49 (**2019 estimate**).
-          
-                   Data: <a href='https://www.who.int/data/gho/info/gho-odata-api' target='_blank'>WHO GHO</a>"),
-          leafletOutput("screening_coverage_map_interactive")
-        ),
-        nav_panel(
-          shiny::icon("circle-info"),
-          markdown(
-            "WHO's 2030 target: **70% of women screened** with a high-performance test by ages 35 and 45."
-          )
-        )
-      ),
-      col_widths = c(12, 12)
-    )
-  )
-),
-
+Data: <a href='https://www.who.int/data/gho/info/gho-odata-api' target='_blank'>WHO GHO</a>"
+                 )
+               )
+             )
+           )
+           ),
   ### Maternal health ------------------------------
   nav_menu(title = "Maternal health", icon = icon("person-pregnant"),
            #### Maternal mortality -----------------------
@@ -2659,12 +2744,17 @@ server <- function(input, output, session) {
     pal <- colorNumeric(palette = "RdYlBu", domain = NULL)
     
     hover_labels <- sprintf(
-      "<strong>%s</strong><br/>Fully vaccinated: %s%% (%s)<br/>At least 1 dose: %s%%<br/>%s",
+      "<strong>%s</strong><br/>Fully vaccinated: %s<br/>At least 1 dose: %s<br/><span style='font-size:12px;color:#555;'>%s</span>",
       hpv_dat$country,
-      ifelse(is.na(hpv_dat$`Full recommended schedule`), "No data", sprintf("%.0f", hpv_dat$`Full recommended schedule`)),
-      hpv_dat$year,
-      ifelse(is.na(hpv_dat$`First dose`), "No data", sprintf("%.0f", hpv_dat$`First dose`)),
-      coalesce(hpv_dat$INTRO_text, "Introduction status unknown")
+      ifelse(is.na(hpv_dat$`Full recommended schedule`), 
+             "No data", 
+             sprintf("%.0f%%", hpv_dat$`Full recommended schedule`)),
+      ifelse(is.na(hpv_dat$`First dose`), 
+             "No data", 
+             sprintf("%.0f%%", hpv_dat$`First dose`)),
+      ifelse(!is.na(hpv_dat$INTRO_text),
+             paste0("Vaccine introduced: ", hpv_dat$INTRO_text),
+             "Introduction status unknown")
     ) %>% lapply(htmltools::HTML)
     
     leaflet_function(data = hpv_dat, pal_object = pal, hover_labels = hover_labels,
@@ -2681,6 +2771,7 @@ server <- function(input, output, session) {
   output$screening_coverage_map_interactive <- renderLeaflet({
     
     screening_dat <- HPV_screening |>
+      filter(Dim3 == input$screening_period) |>
       right_join(state_geo_reactive(), by = c("COUNTRY" = "iso3")) |>
       mutate(selected_sur = case_when(country == input$selected_SUR ~ TRUE, .default = FALSE)) |>
       st_as_sf() |>
