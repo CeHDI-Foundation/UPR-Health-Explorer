@@ -1254,40 +1254,6 @@ Under the Right to Health, States have the following obligations:
   ### Cervical Cancer ------------------------------
   nav_menu(title = "Cervical Cancer", icon = icon("ribbon"),
            
-           # #### Sub-page 1: Overview -----------------------------------
-           # nav_panel(
-           #   title = "About Cervical Cancer",
-           #   fillable = FALSE,
-           #   
-           #   card(
-           #     fill = FALSE,
-           #     card_header("About Cervical Cancer"),
-           #     markdown(
-           #       "- With consistent HPV vaccination and screening, most cervical cancer cases can be prevented outright, and cases caught early respond well to treatment.
-           #        - Worldwide, it's the **fifth most common cancer diagnosed in women**.
-           #        - The underlying cause is **persistent HPV infection**. Because HIV weakens the immune system's ability to clear the virus, women living with HIV face roughly **6 times the risk** of developing cervical cancer.
-           #        
-           #        *Source: [WHO, Cervical cancer fact sheet](https://www.who.int/news-room/fact-sheets/detail/cervical-cancer)*"
-           #                       )
-           #                     ),
-           #                     
-           #                     card(
-           #                       fill = FALSE,
-           #                       card_header("WHO's Global Strategy to Eliminate Cervical Cancer"),
-           #                       markdown(
-           #                         "WHO has set a global roadmap known as **90–70–90**, with milestones for 2030:
-           #        
-           #        - **90%** of girls fully vaccinated against HPV by age 15
-           #        - **70%** of women screened with a high-quality test by ages 35 and 45
-           #        - **90%** of women found to have pre-cancerous or cancerous cervical disease given proper treatment
-           #        
-           #        Hitting these three targets and holding them would put elimination of cervical cancer as a public health threat within reach this century.
-           #        
-           #        *Source: [WHO, Cervical cancer fact sheet](https://www.who.int/news-room/fact-sheets/detail/cervical-cancer)*"
-           #                       )
-           #                     )
-           #                   ),
-           # 
            #### Tab 1: Mortality -----------------------------------
            nav_panel(
              title = "Mortality Rate",
