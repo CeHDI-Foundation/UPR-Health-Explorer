@@ -805,6 +805,10 @@ app_theme <- bs_theme(
   fg = "#1c164d",
   primary = "#1c164d",
   base_font = font_google("Lato", local = FALSE)
+) |>
+  bslib::bs_add_variables(
+    "grid-breakpoints" = "(xs: 0, sm: 576px, md: 768px, lg: 1342px, xl: 1423px, xxl: 1640px)",
+    .where = "declarations"
 )
 
 bs_theme(
@@ -813,7 +817,7 @@ bs_theme(
   fg = "#1c164d",
   primary = "#1c164d",
   base_font = font_google("Lato", local = FALSE)
-)
+)  
 
 # Switch to page_navbar for a top navigation bar
 ui <- page_navbar(
@@ -860,7 +864,31 @@ ui <- page_navbar(
         width: auto !important; /* Let the content define the width */
         min-width: 200px;       /* Set a minimum for good measure */
       }
-    "))
+    ")),
+tags$style(HTML("
+                    /* ===== Tier 2: 1423px–1639.98px ===== */
+                      @media (min-width: 1423px) and (max-width: 1639.98px) {
+                        .navbar-nav > li > a.nav-link,
+                        .navbar-nav > li > a.dropdown-toggle {
+                          font-size: 0.75rem !important;
+                          padding-left: 0.50rem !important;
+                          padding-right: 0.50rem !important;
+                        }
+                        .navbar-brand img { height: 38px !important; }
+                      }
+                    
+                    /* ===== Tier 3: 1342px–1422.98px ===== */
+                      @media (min-width: 1342px) and (max-width: 1422.98px) {
+                        .navbar-nav > li > a.nav-link,
+                        .navbar-nav > li > a.dropdown-toggle {
+                          font-size: 0.70rem !important;
+                          padding-left: 0.30rem !important;
+                          padding-right: 0.30rem !important;
+                        }
+                        .navbar-brand img { height: 33px !important; }
+                      }
+                    "))
+
 ),
   
   
