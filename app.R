@@ -1349,7 +1349,7 @@ Data: <a href='https://immunizationdata.who.int/global/wiise-detail-page/human-p
                           selectInput(
                             "screening_period", NULL,
                             choices = c(
-                              "Lifetime (ever screened)" = "TIMEPERIOD_TIMEPERIOD_EVER_LIFETIME",
+                              "Lifetime" = "TIMEPERIOD_TIMEPERIOD_EVER_LIFETIME",
                               "Last 5 years"             = "TIMEPERIOD_TIMEPERIOD_LAST05YEARS",
                               "Last 3 years"             = "TIMEPERIOD_TIMEPERIOD_LAST03YEARS",
                               "Last year"                = "TIMEPERIOD_TIMEPERIOD_LAST01YEAR"
@@ -1366,7 +1366,10 @@ Data: <a href='https://immunizationdata.who.int/global/wiise-detail-page/human-p
                  markdown(
                    "**Cervical Cancer Screening Coverage (%)**: Percentage of women aged 30–49 who report being screened for cervical cancer, using any WHO-recognized test : HPV DNA testing, cytology, or visual inspection with acetic acid (VIA). 
                    
-Note: this indicator captures screening with *any* test type; the 70% target specifically calls for a *high-performance* (HPV DNA) test, so raw coverage shown here may somewhat overstate progress toward that specific target.
+**Screening period**: The dropdown above the map controls the recall period used to define screening status. *Lifetime* reflects the proportion of women ever screened, while *Last 5 years*, *Last 3 years*, and *Last year* restrict this to screening occurring within the specified period.
+
+                   
+Note: this indicator captures screening with *any* test type; the 70% target specifically calls for a *high-performance* (HPV DNA) test.
 
 Data: <a href='https://www.who.int/data/gho/info/gho-odata-api' target='_blank'>WHO GHO</a>"
                  )
