@@ -256,13 +256,13 @@ upr_excluded_themes <- c(
 summarise_upr_themes <- function(data, by_cycle = FALSE) {
   # Theme columns, in document order (used to break ties in the theme ranking)
   theme_cols <- names(dplyr::select(data, health_related:other_health_related))
-
+  
   prepped <- data |>
     mutate(
       response_upr = fct_relevel(response_upr, "Noted"),
       across(all_of(theme_cols), ~ .x != "Other")   # TRUE = tagged with the theme
     )
-
+  
   if (by_cycle) {
     prepped    <- mutate(prepped, cycle2 = fct_recode(
       cycle, "1" = "Cycle 1", "2" = "Cycle 2", "3" = "Cycle 3", "4" = "Cycle 4"))
@@ -272,7 +272,7 @@ summarise_upr_themes <- function(data, by_cycle = FALSE) {
     id_cols    <- "response_upr"
     stat_group <- "theme"
   }
-
+  
   prepped |>
     select(all_of(c(id_cols, theme_cols))) |>
     pivot_longer(all_of(theme_cols), names_to = "theme", values_to = "tagged") |>
@@ -288,7 +288,7 @@ summarise_upr_themes <- function(data, by_cycle = FALSE) {
       # "(% supported)" label: share of this response among recs that got a
       # response (Supported/Noted); blank when there is no response or no recs
       n_sup = paste0("(", sprintf("%1.0f",
-               n / sum(n[response_upr %in% c("Supported", "Noted")]) * 100), "%)"),
+                                  n / sum(n[response_upr %in% c("Supported", "Noted")]) * 100), "%)"),
       n_sup = case_when(
         response_upr == "Response not available" ~ "",
         n_tot_theme == 0 ~ "",
@@ -321,9 +321,9 @@ build_upr_themes_plot <- function(theme_summary, total_n, lang = "en") {
     mutate(
       theme_label_disp = if (fr) theme_label_fr else theme_label,
       response_disp = if (fr) fct_recode(response_upr,
-                        "Acceptées" = "Supported", "Notées" = "Noted",
-                        "Réponse non disponible" = "Response not available")
-                      else response_upr
+                                         "Acceptées" = "Supported", "Notées" = "Noted",
+                                         "Réponse non disponible" = "Response not available")
+      else response_upr
     )
   x_lab <- if (fr) {
     paste0("% de toutes les recommandations\n(N total = ",
@@ -436,7 +436,7 @@ build_upr_recommending_plot <- function(data, top_n = 20,
     mutate(n=sum(n)) |>
     ungroup() |>
     distinct()
-
+  
   c_plot <- upr_rec_countries |>
     filter(variable %in% c("abortion",
                            "maternal_health",
@@ -450,7 +450,7 @@ build_upr_recommending_plot <- function(data, top_n = 20,
     ungroup() |>
     distinct() |>
     arrange(theme, -n)
-
+  
   if (relabel_iran) {
     c_plot <- c_plot |>
       mutate(recommending_state_upr = case_when(
@@ -458,7 +458,7 @@ build_upr_recommending_plot <- function(data, top_n = 20,
         .default = recommending_state_upr
       ))
   }
-
+  
   c_plot <- c_plot |>
     mutate(recommending_state_upr_raw = recommending_state_upr,
            recommending_state_upr = str_wrap(recommending_state_upr, 20)) |>
@@ -467,11 +467,11 @@ build_upr_recommending_plot <- function(data, top_n = 20,
     ungroup() |>
     arrange(-n_tot) |>
     ungroup()
-
+  
   ccp <- c_plot |> select(recommending_state_upr, n_tot) |> distinct() |>
     arrange(-n_tot) |>
     slice_head(n=top_n)
-
+  
   p <- c_plot |>
     filter(recommending_state_upr %in% c(ccp |> pull(recommending_state_upr))) |>
     ggplot(aes(x= reorder(recommending_state_upr, n_tot), y=n,fill=theme_label
@@ -506,7 +506,7 @@ build_upr_recommending_plot <- function(data, top_n = 20,
     )+
     labs(y="Supported recommendations (N)", x=NULL,
          fill=NULL)
-
+  
   if (fixed_aspect) {
     p <- p + theme(aspect.ratio = 0.09*n_distinct(ccp$recommending_state_upr))
   }
@@ -524,7 +524,7 @@ upr_ggplotly <- function(p, title_text, fix_strip_labels = FALSE,
     tooltip = c("text"),
     source = "click"
   )
-
+  
   if (fix_strip_labels) {
     # ggplotly renders side strips with an angle (usually -90 or 90);
     # catch those, make them horizontal, and move them to the left
@@ -539,7 +539,7 @@ upr_ggplotly <- function(p, title_text, fix_strip_labels = FALSE,
       return(a)
     })
   }
-
+  
   fig |>
     plotly::layout(
       plot_bgcolor = 'rgba(0,0,0,0)',
@@ -628,11 +628,11 @@ build_health_proportion_plot <- function(data, by_state = FALSE,
   fr <- lang == "fr"
   hr_lab <- if (fr) "Liées à la santé" else "Health-related"
   ot_lab <- if (fr) "Autres" else "Other"
-
+  
   med_group <- if (by_state) c("cycle", "state_under_review", "health_related")
-               else          c("cycle", "health_related")
+  else          c("cycle", "health_related")
   tot_group <- if (by_state) c("cycle", "state_under_review") else "cycle"
-
+  
   d <- data |>
     droplevels() |>
     group_by(cycle, state_under_review) |>
@@ -656,16 +656,16 @@ build_health_proportion_plot <- function(data, by_state = FALSE,
                                !!ot_lab := "Other"),
       facet_var = if (by_state) state_under_review else region_name
     )
-
+  
   title_txt <- if (by_state) NULL
-               else if (fr) "Nombre médian de recommandations reçues par les États"
-               else "Median recommendations received by States"
+  else if (fr) "Nombre médian de recommandations reçues par les États"
+  else "Median recommendations received by States"
   y_lab <- if (by_state) {
     if (fr) "Nombre de recommandations" else "Number of recommendations"
   } else {
     if (fr) "Nombre médian de recommandations" else "Median # of recommendations"
   }
-
+  
   d |>
     ggplot(aes(x = cycle, y = med_n, fill = health_disp)) +
     scale_fill_manual(values = setNames(c(hr_color, "grey80"), c(hr_lab, ot_lab))) +
@@ -716,7 +716,7 @@ proportion_png_download <- function(data_reactive, name_reactive, by_state,
             legend.background = element_blank(),
             strip.background = element_blank(),
             strip.text = if (keep_strip) element_text(size = 14, color = "#1c164d")
-                         else element_blank(),
+            else element_blank(),
             plot.title = element_blank()
           ),
         width = 5, height = 3.4, dpi = 300, bg = "transparent"
@@ -740,17 +740,17 @@ upr_click_table <- function(data) {
     ) |>
     filter(value, name != "health_related") |>
     left_join(theme_labels, by = c("name" = "variable"))
-
+  
   event.data <- event_data("plotly_click", source = "click")
   req(event.data)
-
+  
   # Split the customdata back into its parts: theme|response|cycle|recommending
   clicked_info <- strsplit(event.data$customdata, "|", fixed = TRUE)[[1]]
   clicked_theme <- clicked_info[1]
   clicked_response <- clicked_info[2]
   clicked_cycle <- clicked_info[3]
   clicked_recommending <- clicked_info[4]
-
+  
   res <- plot_data |>
     filter(
       theme_label == clicked_theme,
@@ -768,7 +768,7 @@ upr_click_table <- function(data) {
       Cycle = cycle,
       Response = response_upr
     )
-
+  
   if (is.na(clicked_recommending) | clicked_recommending == "NA") {
     res2 <- res |> select(-recommending_state_upr, -recommending_state_upr_comma)
   } else {
@@ -778,7 +778,7 @@ upr_click_table <- function(data) {
              | str_detect(recommending_state_upr_comma, clicked_recommending)
       ) |> select(-recommending_state_upr, -recommending_state_upr_comma)
   }
-
+  
   DT::datatable(res2,
                 filter = "top",
                 extensions = 'FixedHeader',
@@ -809,7 +809,7 @@ app_theme <- bs_theme(
   bslib::bs_add_variables(
     "grid-breakpoints" = "(xs: 0, sm: 576px, md: 768px, lg: 1342px, xl: 1423px, xxl: 1640px)",
     .where = "declarations"
-)
+  )
 
 bs_theme(
   version = 5,
@@ -893,16 +893,194 @@ ui <- page_navbar(
     }
     .navbar-brand img { height: 33px !important; }
   }
-"))
+")),
+    
+    # ---- Recolor the active-tab underline from white to brand red ----------
+    # Bootstrap's nav-underline indicator uses `currentColor` (the active
+    # tab's text color, white on this dark navbar) rather than a distinct
+    # color, so it can't be changed via a simple "color" property. Covering
+    # both the border-bottom and box-shadow variants Bootstrap/bslib use
+    # across versions, so this works regardless of which one renders here.
+    tags$style(HTML("
+  .navbar-nav .nav-link.active,
+  .navbar-nav .show > .nav-link {
+    border-bottom-color: #ec5557 !important;
+    box-shadow: inset 0 -2px 0 #ec5557 !important;
+  }
+")),
+    
+    # ---- Hero / "Health & Rights Observatory" landing panel -----------------
+    tags$style(HTML("
+  :root { --haro-navbar-h: 72px; }
+  @media (min-width: 1423px) and (max-width: 1639.98px) { :root { --haro-navbar-h: 60px; } }
+  @media (min-width: 1342px) and (max-width: 1422.98px) { :root { --haro-navbar-h: 54px; } }
+  @media (max-width: 991.98px) { :root { --haro-navbar-h: 56px; } } /* collapsed/hamburger navbar */
 
-),
+  /* Pull the hero full-bleed out of bslib's page padding. Using the 100vw
+     break-out trick (instead of a fixed negative margin) makes this robust
+     to whatever the container's actual padding is at any breakpoint, so the
+     background photo always reaches both edges of the screen with no gap. */
+  .haro-hero-wrap {
+    width: 100vw;
+    position: relative;
+    left: 50%;
+    right: 50%;
+    margin-left: -50vw;
+    margin-right: -50vw;
+    margin-top: -1rem;
+  }
+  @media (min-width: 576px) {
+    .haro-hero-wrap { margin-top: -1.5rem; }
+  }
+
+  .haro-hero {
+    position: relative;
+    overflow: hidden;
+    box-sizing: border-box;
+    /* Fill the screen below the navbar on any device. The three min-height
+       lines are a progressive fallback: vh (all browsers) -> svh (smallest
+       possible mobile viewport, i.e. address bar expanded) -> dvh (live,
+       tracks the browser chrome as it shows/hides). Browsers use the last
+       one they understand, so this degrades gracefully on older browsers. */
+    min-height: calc(100vh - var(--haro-navbar-h));
+    min-height: calc(100svh - var(--haro-navbar-h));
+    min-height: calc(100dvh - var(--haro-navbar-h));
+    display: flex;
+    align-items: center;
+    /* White gradient overlay (for text contrast against a light photo) sits
+       on top of the photo; the photo itself is the last layer and is what
+       background-size/position below apply to. */
+    background-image:
+      linear-gradient(90deg, rgba(28,22,77,.99) 0%, rgba(28,22,77,.88) 45%, rgba(28,22,77,.25) 70%),
+      url('haro-background.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    /* Bottom padding used to be 96px to leave runway for the scroll-arrow,
+       back when it lived below the hero in the curve div. Now that the
+       arrow is anchored inside .haro-hero itself, that space is unused —
+       trimmed to match the top padding so nothing floats between the hero
+       and the content below it. */
+  }
+
+  .haro-hero-grid {
+    position: relative; z-index: 2; display: grid;
+    grid-template-columns: 1.05fr .95fr;
+    /* Fluid gap and width: clamp(min, preferred, max) keeps things
+       comfortable on small screens but lets the whole layout grow with the
+       viewport on large monitors, instead of staying pinned at a fixed
+       1200px while the surrounding gradient just keeps expanding around it. */
+    gap: clamp(36px, 4vw, 72px);
+    align-items: start;
+    max-width: min(1600px, 92vw);
+    margin: 0 auto;
+    width: 100%;
+  }
+  .haro-eyebrow {
+    color: #FFFF; font-weight: 700; font-size: clamp(.68rem, .3vw + .55rem, .78rem);
+    letter-spacing: .14em; margin-bottom: 12px;
+  }
+  .haro-hero-grid h1 {
+    color: #FFFF; font-size: clamp(2rem, 1.3vw + 1.35rem, 3.2rem);
+    line-height: 1.14; max-width: 620px; font-weight: 700; margin: 0;
+  }
+  .haro-lede {
+    color: #FFFF; font-size: clamp(.92rem, .15vw + .85rem, 1.05rem);
+    max-width: 560px; margin: 16px 0 30px; line-height: 1.6;
+  }
+
+  .haro-pillars { display: flex; gap: clamp(80px, 2.5vw, 100px); flex-wrap: wrap; }
+  .haro-pillar { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .haro-pillar-icon {
+    width: clamp(36px, 2vw, 55px); height: clamp(36px, 2vw, 44px); border-radius: 50%;
+    background: rgba(255,255,255,.16);
+    display: flex; align-items: center; justify-content: center; color: #FFFF;
+    font-size: clamp(.95rem, .3vw + .75rem, 1.15rem);
+  }
+  .haro-pillar span {
+    color: #FFFF; font-size: clamp(.75rem, .1vw + .7rem, .85rem);
+    font-weight: 600; max-width: 200px; line-height: 1.3;
+  }
+
+  .haro-card {
+    background: #fff; border-radius: 14px; padding: clamp(22px, 1.8vw, 34px) clamp(22px, 1.8vw, 34px) clamp(20px, 1.5vw, 28px);
+    box-shadow: 0 20px 50px -18px rgba(10,12,40,.55);
+  }
+  .haro-card .form-group { margin-bottom: 14px; }
+  .haro-card label { font-size: .72rem; font-weight: 700; color: #3a3d5c; }
+  .haro-card .selectize-input { border-radius: 8px; }
+  .haro-card-hint {
+    color: #6b6f8a; font-size: .90rem; line-height: 1.5; margin: 0 0 16px;
+  }
+
+  .haro-map-frame {
+    border: 1px solid #e6e5f0; border-radius: 10px; padding: 4px;
+    margin-bottom: 16px; background: #fbfbfd; overflow: hidden;
+    /* Fixed aspect ratio (roughly the world map's own lon/lat proportions)
+       instead of a fixed pixel height, so the frame scales as a whole with
+       the card's fluid width rather than staying short while the card
+       grows wider on large screens. */
+    aspect-ratio: 5 / 2;
+  }
+  .haro-map-frame .shiny-plot-output {
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  #hero_explore.btn {
+    width: 100%; background: #ec5557; border-color: #ec5557; color: #fff;
+    font-weight: 700; padding: 10px; border-radius: 8px;
+  }
+  #hero_explore.btn:hover { background: #d9403f; border-color: #d9403f; }
+  .haro-scrollcue {
+    /* Positioned relative to .haro-hero (not the curve below it), so it
+       always sits inside the visible screen even though the hero now fills
+       the full viewport height. */
+    position: absolute; left: 50%; transform: translateX(-50%); bottom: 28px; z-index: 5;
+    width: 38px; height: 38px; border-radius: 50%; background: #FFFF; color: #1c164d;
+    display: flex; align-items: center; justify-content: center; cursor: pointer; border: none;
+    animation: haroBob 2s ease-in-out infinite;
+  }
+  
+  .card_landpage {
+  background: #ebebeb;
+  } 
+
+  /* Sidebar collapse/expand arrow: bslib renders this as an SVG chevron
+     that inherits the surrounding text color (currentColor). Against the
+     navy sidebar background it defaults to dark and becomes hard to see,
+     so it's forced to white here regardless of which bslib version's
+     class name is in play. */
+  .bslib-sidebar-layout > .collapse-toggle,
+  .bslib-sidebar-layout .collapse-toggle {
+    color: #ffffff !important;
+  }
+  .bslib-sidebar-layout .collapse-toggle svg,
+  .bslib-sidebar-layout .collapse-toggle .bi {
+    fill: #ffffff !important;
+    color: #ffffff !important;
+  }
+  @keyframes haroBob {
+    0%, 100% { transform: translateX(-50%) translateY(0); }
+    50% { transform: translateX(-50%) translateY(7px); }
+  }
+
+  @media (max-width: 900px) {
+    .haro-hero-grid { grid-template-columns: 1fr; }
+    .haro-hero-grid h1 { font-size: clamp(1.6rem, 6vw, 2.1rem); }
+  }
+"))
+    
+  ),
   
   
   ## Sidebar for Controls ----------------------------------------------------
   # This sidebar is now accessible via a button on the navbar
   sidebar = sidebar(
+    id = "main_sidebar",
     width = 400,
     bg = "#1c164d",
+    open = "closed",
     # title = "Controls & Map", # Give the sidebar a title
     
     selectInput("selected_regional_grouping", "Select Regional Grouping:",
@@ -955,27 +1133,27 @@ Data related to various indicators (e.g. maternal mortality ratio and estimated 
 Grouping by Fragile/Conflict-affected Situations (**FCS status**) was made according to the [FCS grouping obtained from the World Bank](https://thedocs.worldbank.org/en/doc/5c7e4e268baaafa6ef38d924be9279be-0090082025/original/FCSListFY26.pdf).
 
 **Map disclaimer:** CeHDI makes no statement or judgment about the legal status or borders of any country, territory, or city shown on these maps. The information is for reference only.")
-      ,  ### PDF downloader ------------------------
-      downloadButton(
-        outputId = "download_report",
-        label = "Download Country Profile"
-        # ,style = "width: 100%;" # Make the button full-width
-      ),
-      
-      ### JESSE's PDF downloader ------------------------
-      # downloadButton(
-      #   outputId = "download_report_JESSE",
-      #   label = "Download Country Profile"
-      #   # ,style = "width: 100%;" # Make the button full-width
-      # ),
-      
-      #### qmd --------------------------
-      # downloadButton(
-      #   outputId = "download_report_qmd",
-      #   label = "Download Report QMD (IN DEVELOPMENT)"
-      #   # ,style = "width: 100%;" # Make the button full-width
-      # )
-        )
+        ,  ### PDF downloader ------------------------
+        downloadButton(
+          outputId = "download_report",
+          label = "Download Country Profile"
+          # ,style = "width: 100%;" # Make the button full-width
+        ),
+        
+        ### JESSE's PDF downloader ------------------------
+        # downloadButton(
+        #   outputId = "download_report_JESSE",
+        #   label = "Download Country Profile"
+        #   # ,style = "width: 100%;" # Make the button full-width
+        # ),
+        
+        #### qmd --------------------------
+        # downloadButton(
+        #   outputId = "download_report_qmd",
+        #   label = "Download Report QMD (IN DEVELOPMENT)"
+        #   # ,style = "width: 100%;" # Make the button full-width
+        # )
+      )
     )
   ),
   
@@ -987,60 +1165,117 @@ Grouping by Fragile/Conflict-affected Situations (**FCS status**) was made accor
             # card(
             #   fill = FALSE,
             #   card_body(
-            markdown(
-              "Welcome to the **Health & Rights Observatory**. This platform has been designed and created by the **Global Center for Health Diplomacy and Inclusion (CeHDI)**, to advance and amplify the mainstreaming of the right to health in the Human Rights Council processes, treaty bodies and special procedures as a gateway for universal health coverage and global health equity. The platform is intended to empower diplomats and policymakers across the health, foreign affairs, and related sectors, as well as civil society actors, to advance the Right to Health within global and national human rights discussions."),
-            card(
-              fill = FALSE,
-              card_header("The Right to Health"),
-              card_body(markdown(
-                "The <a href='https://www.ohchr.org/en/health' target='_blank'>**Right to Health**</a>, as enshrined in <a href='https://www.ohchr.org/en/instruments-mechanisms/instruments/international-covenant-economic-social-and-cultural-rights#article-12' target='_blank'>Article 12 of the International Convenant on Economic, Social and Cultural Rights</a>, is an inclusive human right that extends beyond timely and appropriate health care to encompass the underlying determinants of health. It forms an essential part of States’ obligations under international human rights law and provides a binding normative framework for advancing well-being, equity, and dignity across all sectors of society.  
+            
+            ### Hero panel --------------------------------------------------
+            tags$div(
+              class = "haro-hero-wrap",
+              tags$div(
+                class = "haro-hero", id = "haro_hero_section",
+                tags$div(
+                  class = "haro-hero-grid",
+                  ## Left: headline + pillars ------------------------------
+                  tags$div(
+                    tags$div(class = "haro-eyebrow", "HEALTH & RIGHTS OBSERVATORY"),
+                    tags$h1("Advancing the", tags$br(), "Right to Health", tags$br(), "Worldwide"),
+                    tags$p(class = "haro-lede",
+                           HTML("Welcome to the <strong>Health &amp; Rights Observatory</strong>. This platform has been designed and created by the <strong>Global Center for Health Diplomacy and Inclusion (CeHDI)</strong> to mainstream the right to health across UN human rights processes and empower diplomats, policymakers, and civil society to advance health equity worldwide.")),
+                    tags$div(
+                      class = "haro-pillars",
+                      tags$div(class = "haro-pillar",
+                               tags$div(class = "haro-pillar-icon", icon("scale-balanced")),
+                               tags$span("Rights-based Accountability")),
+                      tags$div(class = "haro-pillar",
+                               tags$div(class = "haro-pillar-icon", icon("earth-americas")),
+                               tags$span("Evidence for Action")),
+                      tags$div(class = "haro-pillar",
+                               tags$div(class = "haro-pillar-icon", icon("people-group")),
+                               tags$span("Global Collaboration"))
+                    )
+                  ),
+                  ## Right: selector card -----------------------------------
+                  tags$div(
+                    class = "haro-card",
+                    tags$p(class = "haro-card-hint",
+                           "Explore how States are advancing the Right to Health through the Universal Periodic Review."),
+                    selectInput("hero_country", "Select Country / State:",
+                                choices = state_geo |>
+                                  filter(!country %in% c("Western Sahara", "Greenland",
+                                                         "Palestine", "Vatican", "Siberian Artifact")) |>
+                                  select(country) |> distinct() |> arrange(country) |>
+                                  pull(country),
+                                width = "100%"),
+                    tags$div(class = "haro-map-frame", plotOutput("hero_map", height = "100%")),
+                    actionButton("hero_explore",
+                                 label = tagList("Explore Data ", icon("arrow-right")),
+                                 class = "btn")
+                  )
+                ),
+                tags$button(class = "haro-scrollcue", onclick = "document.getElementById('haro_scroll_target').scrollIntoView({behavior:'smooth'});",
+                            "\u2193")
+              )
+            ),
+            
+            tags$div(id = "haro_scroll_target"),
+            
+            div(
+              # class = "haro-info-cards",
+              style = "margin-bottom: 48px;",
+              layout_column_wrap(  
+                card( class = "card_landpage",
+                      fill = FALSE,
+                      card_header("The Right to Health"),
+                      card_body(
+                        markdown(
+                          "The <a href='https://www.ohchr.org/en/health' target='_blank'>**Right to Health**</a>, as enshrined in <a href='https://www.ohchr.org/en/instruments-mechanisms/instruments/international-covenant-economic-social-and-cultural-rights#article-12' target='_blank'>Article 12 of the International Convenant on Economic, Social and Cultural Rights</a>, is an inclusive human right that extends beyond timely and appropriate health care to encompass the underlying determinants of health. It forms an essential part of States’ obligations under international human rights law and provides a binding normative framework for advancing well-being, equity, and dignity across all sectors of society.  
                            
 Under the Right to Health, States have the following obligations:  
 -  **Respect**: refrain from directly or indirectly interfering with the enjoyment of the right to health.  
 -  **Protect**: take effective measures to prevent third parties from undermining or violating the guarantees of the right to health.  
 -  **Fulfill**: adopt appropriate legislative, administrative, budgetary, judicial, promotional, and other measures toward the full realization of the right to health."
-                # ))
-              ))),
-            
-            card(
-              fill = FALSE,
-              card_header("The Right to Health and the Universal Periodic Review"),
-              
-              card_body(
+                          # ))
+                        ))),
                 
-                # 1. The Wrapper: This is a standard div that contains the floating image and text.
-                div(
-                  style = "overflow: hidden;",
-                  
-                  # 2. The Floated Clickable Image (using R actionLink)
-                  # We put the actionLink here, and use R's tag$div to wrap the image 
-                  # and apply the float styles.
-                  tags$div(
-                    class = "image-float-wrapper",
-                    style = "float: left; max-width: 30%; height: auto; margin: 0px 15px 0px 0px;", # Apply float styles here
-                    actionLink(
-                      inputId = "upr_image_expand", # This ID triggers the modal in the server
-                      label = img(
-                        src = "WHO_UPR.png",
-                        style = "height: auto; width: 100%; object-fit: contain; cursor: pointer;"
-                      )
-                    ),
-                    tags$figcaption(
-                      HTML("<small><a href='https://iris.who.int/handle/10665/277114' target='_blank'>Image: WHO</a>  
-                                          More than 90,000 recommendations have been issued during the first three cycles of the UPR.</small>"),
-                      style = "text-align: center; color: #666; font-size: 0.8em; margin-top: 5px;"
-                    )
-                  ),
-                  
-                  # 3. All Text Content (using HTML to ensure it wraps the floated div)
-                  HTML(
-                    "
-        <p>This platform presents data on the Right to Health within the context of the <a href='https://www.ohchr.org/en/hr-bodies/upr/basic-facts' target='_blank'><b>Universal Periodic Review (UPR)</b></a>. This <b>State-led mechanism</b> evaluates each state’s human rights obligations and commitments. The review process is participatory and includes interactive discussions during which any UN Member State may issue recommendations to the State under review, which may then choose to ‘support’ or ‘note’ those recommendations.</p>
-        <p>Contact us at info[at]cehdi.org for more information or to give feedback.</p>
-        "
-                  )
+                card(class = "card_landpage",
+                     fill = TRUE,
+                     card_header("The Universal Periodic Review"),
+                     
+                     card_body(
+                       
+                       # 1. The Wrapper: This is a standard div that contains the floating image and text.
+                       div(
+                         style = "overflow: hidden;",
+
+                         # 2. The Floated Clickable Image (using R actionLink)
+                         # We put the actionLink here, and use R's tag$div to wrap the image
+                         # and apply the float styles.
+                         tags$div(
+                           class = "image-float-wrapper",
+                           style = "float: left; max-width: 50%; height: auto; margin: 0px 15px 0px 0px;", # Apply float styles here
+                           actionLink(
+                             inputId = "upr_image_expand", # This ID triggers the modal in the server
+                             label = img(
+                               src = "WHO_UPR2.png",
+                               style = "height: auto; width: 100%; object-fit: contain; cursor: pointer;"
+                             )
+                           ),
+                           tags$figcaption(
+                             HTML("<small><a href='https://iris.who.int/handle/10665/277114' target='_blank'>Image: WHO</a>
+                                                 More than 90,000 recommendations have been issued during the first three cycles of the UPR.</small>"),
+                             style = "text-align: center; color: #666; font-size: 0.8em; margin-top: 5px;"
+                           )
+                         ),
+                       
+                       # 3. All Text Content (using HTML to ensure it wraps the floated div)
+                       HTML(
+                         "
+          <p>This platform presents data on the Right to Health within the context of the <a href='https://www.ohchr.org/en/hr-bodies/upr/basic-facts' target='_blank'><b>Universal Periodic Review (UPR)</b></a>. This <b>State-led mechanism</b> evaluates each state’s human rights obligations and commitments. The review process is participatory and includes interactive discussions during which any UN Member State may issue recommendations to the State under review, which may then choose to ‘support’ or ‘note’ those recommendations.</p>
+          "
+                       )
+                     )
+                     )
                 )
-              )
+              ),
+              markdown("<p>Contact us at info@cehdi.org for more information or to give feedback.</p>")
             )
   ),
   
@@ -1306,10 +1541,10 @@ Under the Right to Health, States have the following obligations:
                ##### Right: explanation -------------------------------------------
                card(full_screen = TRUE,
                     card_header("Historical Cervical Cancer Mortality Rate"),
-                 markdown(
-                   "The dashed vertical line on the trend chart below, when shown, marks the year the selected country introduced HPV vaccination into its national immunization program."
-                 ),
-                 plotlyOutput("ccmr_trend"),
+                    markdown(
+                      "The dashed vertical line on the trend chart below, when shown, marks the year the selected country introduced HPV vaccination into its national immunization program."
+                    ),
+                    plotlyOutput("ccmr_trend"),
                )
              )
            ),
@@ -1362,9 +1597,9 @@ Data: <a href='https://immunizationdata.who.int/global/wiise-detail-page/human-p
                     leafletOutput("screening_coverage_map_interactive", height = "400px")
                ),
                card( fill = FALSE,
-                 card_header(shiny::icon("circle-info")),
-                 markdown(
-                   "**Cervical Cancer Screening Coverage (%)**: Percentage of women aged 30–49 who report being screened for cervical cancer, using any WHO-recognized test : HPV DNA testing, cytology, or visual inspection with acetic acid (VIA). 
+                     card_header(shiny::icon("circle-info")),
+                     markdown(
+                       "**Cervical Cancer Screening Coverage (%)**: Percentage of women aged 30–49 who report being screened for cervical cancer, using any WHO-recognized test : HPV DNA testing, cytology, or visual inspection with acetic acid (VIA). 
                    
 **Screening period**: The dropdown above the map controls the recall period used to define screening status. *Lifetime* reflects the proportion of women ever screened, while *Last 5 years*, *Last 3 years*, and *Last year* restrict this to screening occurring within the specified period.
 
@@ -1372,11 +1607,11 @@ Data: <a href='https://immunizationdata.who.int/global/wiise-detail-page/human-p
 Note: this indicator captures screening with *any* test type; the 70% target specifically calls for a *high-performance* (HPV DNA) test.
 
 Data: <a href='https://www.who.int/data/gho/info/gho-odata-api' target='_blank'>WHO GHO</a>"
-                 )
+                     )
                )
              )
            )
-           ),
+  ),
   ### Maternal health ------------------------------
   nav_menu(title = "Maternal health", icon = icon("person-pregnant"),
            #### Maternal mortality -----------------------
@@ -1575,8 +1810,8 @@ Under the Right to Health, States have the following obligations:
 -  **Fulfill**: adopt appropriate legislative, administrative, budgetary, judicial, promotional, and other measures toward the full realization of the right to health."
                   )
                 )
+              )
             )
-  )
   ),
   
   nav_spacer(),
@@ -1612,6 +1847,66 @@ server <- function(input, output, session) {
     session$clientData$output_UHC_trend_width
   }) |> debounce(500)
   
+  ## Sidebar visibility per tab -----------------------------------------------
+  # Closed by default (see `open = "closed"` in the sidebar UI) so the landing
+  # page shows the full-width hero; opens automatically once the visitor
+  # moves to any data page, and closes again if they come back to the hero.
+  observeEvent(input$main_navbar, {
+    if (input$main_navbar %in% c("By Region", "By State")) {
+      bslib::sidebar_toggle("main_sidebar", open = TRUE, session = session)
+    } else {
+      bslib::sidebar_toggle("main_sidebar", open = FALSE, session = session)
+    }
+  }, ignoreInit = TRUE)
+  
+  ## Hero panel (Health & Rights Observatory landing) ------------------------
+  # Country-only now (region selection lives in the sidebar, not the hero).
+  # "Explore Data" resets the sidebar's regional filters to Global before
+  # setting the state, so the chosen country is always a valid selection
+  # regardless of whatever region filter the sidebar was previously on.
+  
+  # Small illustrative map: greys out the globe, highlights the hero's
+  # selected country in red (mirrors the sidebar's global_map).
+  output$hero_map <- renderPlot({
+    req(input$hero_country)
+    state_geo |>
+      mutate(hero_sel = factor(
+        case_when(
+          country == input$hero_country ~ "Country",
+          .default = "Other"
+        ),
+        levels = c("Country", "Other")
+      )) |>
+      ggplot(aes(geometry = polygon, fill = hero_sel, color = hero_sel)) +
+      geom_sf(linewidth = 0.15) +
+      scale_fill_manual(values = c("Country" = "#ec5557", "Other" = "grey90")) +
+      scale_color_manual(values = c("Country" = "#ec5557", "Other" = "grey90")) +
+      theme_void() +
+      guides(fill = "none", color = "none") +
+      theme(plot.margin = margin(0, 0, 0, 0))
+  })
+  
+  # "Explore Data": reset the sidebar's regional filters to Global (so the
+  # State dropdown's choices always include the hero's pick, however the
+  # sidebar was last filtered), set the state, then jump straight to the
+  # "By State" tab under UPR recommendations for that state.
+  observeEvent(input$hero_explore, {
+    req(input$hero_country)
+    updateSelectInput(session, "selected_regional_grouping", selected = "Global")
+    updateSelectInput(session, "selected_region", choices = "Global", selected = "Global")
+    updateSelectInput(
+      session, "selected_SUR",
+      choices = state_geo |>
+        filter(!country %in% c("Western Sahara", "Greenland",
+                               "Palestine", "Vatican", "Siberian Artifact")) |>
+        select(country) |> distinct() |> arrange(country) |> pull(country),
+      selected = input$hero_country
+    )
+    # "By State" is a nav_panel nested inside the "UPR recommendations"
+    # nav_menu; page_navbar still selects it by its own (unique) title.
+    updateNavbarPage(session, "main_navbar", selected = "By State")
+  })
+  
   ## About page options ------------------------
   
   # observeEvent(input$home_button, {
@@ -1625,7 +1920,7 @@ server <- function(input, output, session) {
   observeEvent(input$upr_image_expand, {
     showModal(modalDialog(
       # title = "Graphical overview of the UPR process",
-      img(src = "WHO_UPR.png", style = "width: 100%"),
+      img(src = "WHO_UPR2.png", style = "width: 100%"),
       size = "xl",           # Make the modal large
       easyClose = TRUE,     # Allow closing by clicking outside
       footer = NULL         # Remove the default buttons
@@ -2004,7 +2299,7 @@ server <- function(input, output, session) {
   ### General plot ----------------
   output$global_plot <- renderPlot({
     req(nrow(filtered_upr_region()) > 0) # pause execution until filtered data is ready
-
+    
     build_health_proportion_plot(
       filtered_upr_region(), by_state = FALSE,
       region_name = input$selected_region, lang = "en"
@@ -2030,7 +2325,7 @@ server <- function(input, output, session) {
         )
       )
   })
-
+  
   #### Plot downloaders -------------------
   output$download_global_plot <- proportion_png_download(
     filtered_upr_region, reactive(input$selected_region), by_state = FALSE,
@@ -2040,7 +2335,7 @@ server <- function(input, output, session) {
     filtered_upr_region, reactive(input$selected_region), by_state = FALSE,
     lang = "fr", keep_strip = TRUE
   )
-
+  
   ### Plotly ---------------------
   
   #### All  ---------------
@@ -2052,19 +2347,19 @@ server <- function(input, output, session) {
       summarise_upr_themes() |>
       build_upr_themes_plot(total_n = nrow(filtered_upr_region()))
   })
-
+  
   ##### Plot output --------------------
   output$plotly_UPR_regional <- renderPlotly({
     upr_ggplotly(plotly_UPR_regional_object(), input$selected_region)
   })
-
+  
   ##### Plot downloader -------------------
   output$download_plotly_UPR_regional <- upr_png_download(
     plotly_UPR_regional_object,
     reactive(input$selected_region),
     expand_right = 0.2
   )
-
+  
   # French version (for PNG download only)
   plotly_UPR_regional_object_fr <- reactive({
     req(nrow(filtered_upr_region()) > 0)
@@ -2078,7 +2373,7 @@ server <- function(input, output, session) {
     expand_right = 0.2,
     lang = "fr"
   )
-
+  
   #### Cycles  ---------------
   
   ##### Plot object -------------------
@@ -2088,7 +2383,7 @@ server <- function(input, output, session) {
       summarise_upr_themes(by_cycle = TRUE) |>
       build_upr_cycle_plot()
   })
-
+  
   ##### Plot output --------------------
   output$plotly_UPR_regional_cycle <- renderPlotly({
     upr_ggplotly(plotly_UPR_regional_cycle_object(), input$selected_region,
@@ -2102,13 +2397,13 @@ server <- function(input, output, session) {
     req(nrow(filtered_upr_region()) > 0)
     build_upr_recommending_plot(filtered_upr_region())
   })
-
+  
   ##### Plot output --------------------
   output$plotly_UPR_regional_recommending <- renderPlotly({
     upr_ggplotly(plotly_UPR_regional_recommending_object(), input$selected_region,
                  margins = list(l = 0, r = 0, b = 0, t = 30))
   })
-
+  
   #### Table -------------------
   output$plotly_table_regional <- DT::renderDT({
     upr_click_table(filtered_upr_region())
@@ -2127,19 +2422,19 @@ server <- function(input, output, session) {
       summarise_upr_themes() |>
       build_upr_themes_plot(total_n = nrow(filtered_upr()))
   })
-
+  
   ##### Plot output --------------------
   output$plotly_UPR_SUR <- renderPlotly({
     upr_ggplotly(plotly_UPR_SUR_object(), input$selected_SUR)
   })
-
+  
   ##### Plot downloader -------------------
   output$download_plotly_UPR_SUR <- upr_png_download(
     plotly_UPR_SUR_object,
     reactive(input$selected_SUR),
     expand_right = 0.25
   )
-
+  
   # French version (for PNG download only)
   plotly_UPR_SUR_object_fr <- reactive({
     req(nrow(filtered_upr()) > 0)
@@ -2153,7 +2448,7 @@ server <- function(input, output, session) {
     expand_right = 0.25,
     lang = "fr"
   )
-
+  
   #### Cycles  ---------------
   
   ##### Plot object -------------------
@@ -2163,7 +2458,7 @@ server <- function(input, output, session) {
       summarise_upr_themes(by_cycle = TRUE) |>
       build_upr_cycle_plot()
   })
-
+  
   ##### Plot output --------------------
   output$plotly_UPR_SUR_cycle <- renderPlotly({
     upr_ggplotly(plotly_UPR_SUR_cycle_object(), input$selected_SUR,
@@ -2178,13 +2473,13 @@ server <- function(input, output, session) {
     build_upr_recommending_plot(filtered_upr(),
                                 relabel_iran = TRUE, fixed_aspect = TRUE)
   })
-
+  
   ##### Plot output --------------------
   output$plotly_UPR_SUR_recommending <- renderPlotly({
     upr_ggplotly(plotly_UPR_SUR_recommending_object(), input$selected_SUR,
                  margins = list(l = 0, r = 0, b = 0, t = 30))
   })
-
+  
   #### Table -------------------
   output$plotly_table_SUR <- DT::renderDT({
     upr_click_table(filtered_upr())
@@ -2213,7 +2508,7 @@ server <- function(input, output, session) {
         plot.title= element_blank()
       )
   })
-
+  
   #### Output --------------------
   output$plot <- renderPlot({
     rec_plot_object()
@@ -2264,20 +2559,20 @@ server <- function(input, output, session) {
       )
     }
   )
-
+  
   # French version (for PNG download only)
   output$download_rec_plot_object_fr <- proportion_png_download(
     filtered_upr, reactive(input$selected_SUR), by_state = TRUE, lang = "fr",
     y_lab = "Recommandations (N)", keep_strip = FALSE
   )
-
-
+  
+  
   ### All cycles themes ----------------------------
   #### Plot object -------------------
   upr_themes_all_object <- reactive({
     req(nrow(filtered_upr()) > 0)
     a <- summarise_upr_themes(filtered_upr())
-
+    
     p <- a |>
       ggplot(aes(x = perc, y = fct_rev(theme_label))) +
       geom_col(aes(fill = response_upr)) +
@@ -2624,7 +2919,7 @@ server <- function(input, output, session) {
   })
   
   ## Cervical health outputs --------------------------------
-
+  
   ### Cervical cancer mortality rate map -------
   
   output$ccmortality_map_interactive <- renderLeaflet({
@@ -2767,9 +3062,9 @@ server <- function(input, output, session) {
                      fill_outcome = "Full recommended schedule")
   })
   
-
   
-
+  
+  
   ### HPV Screening coverage Interactive Map -------------------
   output$screening_coverage_map_interactive <- renderLeaflet({
     
