@@ -742,14 +742,28 @@ upr_click_table <- function(data) {
     left_join(theme_labels, by = c("name" = "variable"))
   
   event.data <- event_data("plotly_click", source = "click")
-  req(event.data)
   
-  # Split the customdata back into its parts: theme|response|cycle|recommending
-  clicked_info <- strsplit(event.data$customdata, "|", fixed = TRUE)[[1]]
-  clicked_theme <- clicked_info[1]
-  clicked_response <- clicked_info[2]
-  clicked_cycle <- clicked_info[3]
-  clicked_recommending <- clicked_info[4]
+  is_default <- is.null(event.data)
+  
+  if (is_default) {
+    # No click yet: default to the single largest theme+response combination
+    # (i.e. the biggest bar segment in the chart) so the table isn't blank.
+    default_info <- plot_data |>
+      count(theme_label, response_upr, sort = TRUE) |>
+      slice(1)
+    
+    clicked_theme       <- as.character(default_info$theme_label)
+    clicked_response    <- as.character(default_info$response_upr)
+    clicked_cycle       <- NA
+    clicked_recommending <- NA
+  } else {
+    # Split the customdata back into its parts: theme|response|cycle|recommending
+    clicked_info <- strsplit(event.data$customdata, "|", fixed = TRUE)[[1]]
+    clicked_theme        <- clicked_info[1]
+    clicked_response     <- clicked_info[2]
+    clicked_cycle        <- clicked_info[3]
+    clicked_recommending <- clicked_info[4]
+  }
   
   res <- plot_data |>
     filter(
@@ -779,12 +793,19 @@ upr_click_table <- function(data) {
       ) |> select(-recommending_state_upr, -recommending_state_upr_comma)
   }
   
+  caption_text <- if (is_default) {
+    paste0("Theme: ", clicked_theme, " — ", clicked_response,
+           " (default view; click a bar chart to explore a specific selection)")
+  } else {
+    paste0("Theme: ", clicked_theme, " — ", clicked_response)
+  }
+  
   DT::datatable(res2,
                 filter = "top",
                 extensions = 'FixedHeader',
                 caption = tags$caption(
                   style = "caption-side: top; text-align: left;",
-                  paste0("Theme: ", clicked_theme)
+                  caption_text
                 ),
                 options = list(
                   pageLength = 10
@@ -1852,7 +1873,7 @@ server <- function(input, output, session) {
   # page shows the full-width hero; opens automatically once the visitor
   # moves to any data page, and closes again if they come back to the hero.
   observeEvent(input$main_navbar, {
-    if (input$main_navbar %in% c("By Region", "By State")) {
+    if (input$main_navbar %in% c("By Region")) {
       bslib::sidebar_toggle("main_sidebar", open = TRUE, session = session)
     } else {
       bslib::sidebar_toggle("main_sidebar", open = FALSE, session = session)
