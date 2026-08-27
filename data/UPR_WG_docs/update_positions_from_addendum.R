@@ -473,7 +473,7 @@ update_positions_from_addendum <- function(
     addendum_input,
     state_under_review,
     upr_session,
-    rds_dir           = here("data", "UPR_WG_docs", "extracted_recs"),
+    rds_dir           = here("data", "UPR_WG_docs", "extracted_recs", "dashboard"),
     mark_final        = FALSE,
     fill_remaining_as = NULL,   # e.g. "Noted" -- explicitly fill any label the
     # addendum didn't cover. Use only after you've
@@ -560,10 +560,10 @@ update_positions_from_addendum <- function(
   invisible(updated)
 }
 update_positions_from_addendum(
-  addendum_input     = "https://docs.un.org/en/A/HRC/62/16/Add.1",
-  state_under_review = "Sao Tome and Principe",
+  addendum_input     = "https://docs.un.org/en/A/HRC/63/13/Add.1",
+  state_under_review = "Australia",
   upr_session        = 51,
-  mark_final         = FALSE,
-  fill_remaining_as  = "Noted"
+  mark_final         = TRUE,
+  fill_remaining_as  = NULL
 )
 
