@@ -429,6 +429,9 @@ upr_df <- df |>
     case_when(
       provisional ~ "Response not available",
       response_upr == "Supported/Noted" ~ "Partially supported",
+      response_upr == "Under consideration" ~ "Response not available", #Manual extracts sometimes contain position 
+                                                                        #for some recommendations (see report of group 
+                                                                        #work of Beligum session 52 as of august 2026)
       .default = response_upr
     ),
     levels = c("Supported", "Partially supported", "Noted", "Response not available")
