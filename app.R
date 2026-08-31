@@ -1035,7 +1035,39 @@ ui <- page_navbar(
        trimmed to match the top padding so nothing floats between the hero
        and the content below it. */
   }
-
+  .haro-impact-teaser {
+    max-width: 600px;
+    margin: -6px 0 30px;
+    padding: 14px 18px;
+    border-left: 3px solid #ec5557;
+    background: rgba(255,255,255,.06);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .haro-impact-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #FFFF;
+    text-decoration: none;
+    width: fit-content;
+  }
+  .haro-impact-link--heading {
+    font-weight: 700;
+    font-size: clamp(1rem, .2vw + .9rem, 1.15rem);
+  }
+  .haro-impact-link--sub {
+    font-weight: 500;
+    font-size: clamp(.85rem, .15vw + .78rem, .95rem);
+    color: rgba(255,255,255,.85);
+  }
+  .haro-impact-link:hover {
+    color: #ec5557;
+  }
+  .haro-impact-link--sub:hover {
+    color: #ff9a9c;
+  }
   .haro-hero-grid {
     position: relative; z-index: 2; display: grid;
     grid-template-columns: 1.05fr .95fr;
@@ -1306,6 +1338,21 @@ Grouping by Fragile/Conflict-affected Situations (**FCS status**) was made accor
                     tags$p(class = "haro-lede",
                            HTML("Welcome to the <strong>Health &amp; Rights Observatory</strong>. This platform has been designed and created by the <strong>Global Center for Health Diplomacy and Inclusion (CeHDI)</strong> to mainstream the right to health across UN human rights processes and empower diplomats, policymakers, and civil society to advance health equity worldwide.")),
                     tags$div(
+                      class = "haro-impact-teaser",
+                      tags$a(
+                        href = "#upr_explainer_anchor",
+                        class = "haro-impact-link haro-impact-link--heading",
+                        onclick = "document.getElementById('upr_explainer_anchor').scrollIntoView({behavior:'smooth'}); return false;",
+                        "Universal Periodic Review and the Right to Health ", icon("arrow-right")
+                      ),
+                      tags$a(
+                        href = "#upr_impact_anchor",
+                        class = "haro-impact-link haro-impact-link--sub",
+                        onclick = "document.getElementById('upr_impact_anchor').scrollIntoView({behavior:'smooth'}); return false;",
+                        "What is its impact on the right to health? ", icon("arrow-right")
+                      )
+                    ),
+                    tags$div(
                       class = "haro-pillars",
                       tags$div(class = "haro-pillar",
                                tags$div(class = "haro-pillar-icon", icon("scale-balanced")),
@@ -1350,9 +1397,11 @@ Grouping by Fragile/Conflict-affected Situations (**FCS status**) was made accor
             div(
               # class = "haro-info-cards",
               style = "margin-bottom: 48px;",
+              tags$div(
+                id = "upr_explainer_anchor",
               layout_column_wrap(  
                 card( class = "card_landpage",
-                      fill = FALSE,
+                      fill = TRUE,
                       card_header("The Right to Health"),
                       card_body(
                         markdown(
@@ -1404,7 +1453,10 @@ Under the Right to Health, States have the following obligations:
                      )
                      )
                 )
+              )
               ),
+              tags$div(
+                id = "upr_impact_anchor",
               card(class = "card_landpage",
                 fill = FALSE,
                 card_header("Do UPR recommendations impact health outcomes? (a preliminary analysis)"),
@@ -1455,6 +1507,7 @@ Under the Right to Health, States have the following obligations:
                     )
                   )
                 )
+              )
               ),
               markdown("<p>Contact us at info@cehdi.org for more information or to give feedback.</p>")
             )
