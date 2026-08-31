@@ -828,7 +828,7 @@ app_theme <- bs_theme(
   base_font = font_google("Lato", local = FALSE)
 ) |>
   bslib::bs_add_variables(
-    "grid-breakpoints" = "(xs: 0, sm: 576px, md: 768px, lg: 1342px, xl: 1423px, xxl: 1640px)",
+    "grid-breakpoints" = "(xs: 0, sm: 576px, md: 990px, lg: 1165px, xl: 1423px, xxl: 1640px)",
     .where = "declarations"
   )
 
@@ -902,7 +902,7 @@ ui <- page_navbar(
   }
 
   /* ===== Tier 3: 1342px–1422.98px ===== */
-  @media (min-width: 1342px) and (max-width: 1422.98px) {
+  @media (min-width: 1240px) and (max-width: 1422.98px) {
     .navbar-nav > li > a.nav-link,
     .navbar-nav > li > a.dropdown-toggle {
       font-size: 0.70rem !important;
@@ -913,6 +913,19 @@ ui <- page_navbar(
       font-size: 0.70rem !important;
     }
     .navbar-brand img { height: 33px !important; }
+  }
+  
+    @media (min-width: 1165px) and (max-width: 1239.98px) {
+    .navbar-nav > li > a.nav-link,
+    .navbar-nav > li > a.dropdown-toggle {
+      font-size: 0.65rem !important;
+      padding-left: 0.25rem !important;
+      padding-right: 0.25rem !important;
+    }
+    .navbar-nav .dropdown-menu .dropdown-item {
+      font-size: 0.65rem !important;
+    }
+    .navbar-brand img { height: 28px !important; }
   }
 ")),
     
@@ -930,30 +943,49 @@ ui <- page_navbar(
   }
 ")),
     
+    tags$script(HTML("
+  document.addEventListener('click', function(e) {
+    var target = e.target.closest('.navbar-collapse .nav-link, .navbar-collapse .dropdown-item');
+    if (!target) return;
+    var navbarCollapse = document.querySelector('.navbar-collapse.show');
+    if (navbarCollapse && window.bootstrap) {
+      var bsCollapse = bootstrap.Collapse.getOrCreateInstance(navbarCollapse);
+      bsCollapse.hide();
+    }
+  });
+")),
+    
+    tags$script(HTML("
+  function fixHeroBleed() {
+    var hero = document.querySelector('.haro-hero-wrap');
+    if (!hero) return;
+    hero.style.marginLeft = '';
+    hero.style.marginRight = '';
+    hero.style.width = '';
+    var rect = hero.getBoundingClientRect();
+    hero.style.width = window.innerWidth + 'px';
+    hero.style.marginLeft = (-rect.left) + 'px';
+    hero.style.marginRight = 'auto';
+  }
+  window.addEventListener('load', fixHeroBleed);
+  window.addEventListener('resize', fixHeroBleed);
+  $(document).on('shiny:sessioninitialized', fixHeroBleed);
+")),
     # ---- Hero / "Health & Rights Observatory" landing panel -----------------
     tags$style(HTML("
+    html, body {
+  overflow-x: hidden;
+}
   :root { --haro-navbar-h: 72px; }
   @media (min-width: 1423px) and (max-width: 1639.98px) { :root { --haro-navbar-h: 60px; } }
-  @media (min-width: 1342px) and (max-width: 1422.98px) { :root { --haro-navbar-h: 54px; } }
   @media (max-width: 991.98px) { :root { --haro-navbar-h: 56px; } } /* collapsed/hamburger navbar */
 
-  /* Pull the hero full-bleed out of bslib's page padding. Using the 100vw
-     break-out trick (instead of a fixed negative margin) makes this robust
-     to whatever the container's actual padding is at any breakpoint, so the
-     background photo always reaches both edges of the screen with no gap. */
-  .haro-hero-wrap {
-    width: 100vw;
-    position: relative;
-    left: 50%;
-    right: 50%;
-    margin-left: -50vw;
-    margin-right: -50vw;
-    margin-top: -1rem;
-  }
-  @media (min-width: 576px) {
-    .haro-hero-wrap { margin-top: -1.5rem; }
-  }
-
+ .haro-hero-wrap {
+  margin-top: -1rem;
+}
+@media (min-width: 576px) {
+  .haro-hero-wrap { margin-top: -1.5rem; }
+}
   .haro-hero {
     position: relative;
     overflow: hidden;
@@ -998,12 +1030,13 @@ ui <- page_navbar(
     width: 100%;
   }
   .haro-eyebrow {
-    color: #FFFF; font-weight: 700; font-size: clamp(.68rem, .3vw + .55rem, .78rem);
-    letter-spacing: .14em; margin-bottom: 12px;
+    color: #FFFF; font-weight: 700; font-size: clamp(2rem, 1.3vw + 1.35rem, 3.2rem);
+    line-height: 1.14; letter-spacing: normal; margin-bottom: 12px;
   }
   .haro-hero-grid h1 {
-    color: #FFFF; font-size: clamp(2rem, 1.3vw + 1.35rem, 3.2rem);
-    line-height: 1.14; max-width: 620px; font-weight: 700; margin: 0;
+    color: #FFFF; font-size: clamp(1rem, .4vw + .85rem, 1.3rem);
+    line-height: 1.4; max-width: 620px; font-weight: 500;
+    letter-spacing: .04em; text-transform: uppercase; margin: 0;
   }
   .haro-lede {
     color: #FFFF; font-size: clamp(.92rem, .15vw + .85rem, 1.05rem);
@@ -1120,15 +1153,20 @@ ui <- page_navbar(
                 choices = c("Global"),
                 selected = "Global"),
     
-    selectInput("selected_SUR", "Select State:",
-                choices = state_geo |> 
-                  # Remove non-member states (no data, causes crash)
-                  filter(!country %in% c("Western Sahara","Greenland" ,
-                                         "Palestine","Vatican",
-                                         "Siberian Artifact")) |>  
-                  select(country) |> distinct() |> arrange(country) |> 
-                  pull(country),
-                multiple = FALSE),
+    selectizeInput("selected_SUR", "Select State:",
+                   choices = state_geo |> 
+                     filter(!country %in% c("Western Sahara","Greenland" ,
+                                            "Palestine","Vatican",
+                                            "Siberian Artifact")) |>  
+                     select(country) |> distinct() |> arrange(country) |> 
+                     pull(country),
+                   selected = character(0),
+                   multiple = FALSE,
+                   options = list(
+                     placeholder = 'Select a country',
+                     onInitialize = I('function() { this.setValue(""); }')
+                   )
+    ),
     
     card(
       class = "bg-light",
@@ -1197,7 +1235,7 @@ Grouping by Fragile/Conflict-affected Situations (**FCS status**) was made accor
                   ## Left: headline + pillars ------------------------------
                   tags$div(
                     tags$div(class = "haro-eyebrow", "HEALTH & RIGHTS OBSERVATORY"),
-                    tags$h1("Advancing the", tags$br(), "Right to Health", tags$br(), "Worldwide"),
+                    tags$h1("Advancing the Right to Health Worldwide"),
                     tags$p(class = "haro-lede",
                            HTML("Welcome to the <strong>Health &amp; Rights Observatory</strong>. This platform has been designed and created by the <strong>Global Center for Health Diplomacy and Inclusion (CeHDI)</strong> to mainstream the right to health across UN human rights processes and empower diplomats, policymakers, and civil society to advance health equity worldwide.")),
                     tags$div(
@@ -1216,15 +1254,19 @@ Grouping by Fragile/Conflict-affected Situations (**FCS status**) was made accor
                   ## Right: selector card -----------------------------------
                   tags$div(
                     class = "haro-card",
-                    tags$p(class = "haro-card-hint",
-                           "Explore how States are advancing the Right to Health through the Universal Periodic Review."),
-                    selectInput("hero_country", "Select Country / State:",
-                                choices = state_geo |>
-                                  filter(!country %in% c("Western Sahara", "Greenland",
-                                                         "Palestine", "Vatican", "Siberian Artifact")) |>
-                                  select(country) |> distinct() |> arrange(country) |>
-                                  pull(country),
-                                width = "100%"),
+                    selectizeInput("hero_country", "Explore how States are advancing the Right to Health through the Universal Periodic Review.\n",
+                                   choices = state_geo |>
+                                     filter(!country %in% c("Western Sahara", "Greenland",
+                                                            "Palestine", "Vatican", "Siberian Artifact")) |>
+                                     select(country) |> distinct() |> arrange(country) |>
+                                     pull(country),
+                                   selected = character(0),
+                                   width = "100%",
+                                   options = list(
+                                     placeholder = 'Select Country / State',
+                                     onInitialize = I('function() { this.setValue(""); }')
+                                   )
+                    ),
                     tags$div(class = "haro-map-frame", plotOutput("hero_map", height = "100%")),
                     actionButton("hero_explore",
                                  label = tagList("Explore Data ", icon("arrow-right")),
@@ -1296,40 +1338,34 @@ Under the Right to Health, States have the following obligations:
                      )
                 )
               ),
-              markdown("<p>Contact us at info@cehdi.org for more information or to give feedback.</p>")
-            )
-  ),
-  
-  ### UPR Impact ------------------
-  nav_panel(title = "UPR impact", icon = icon("square-poll-vertical"),
-            card(
-              fill = FALSE,
-              card_header("Do UPR recommendations impact health outcomes? (a preliminary analysis)"),
-              
-              card_body(
+              card(class = "card_landpage",
+                fill = FALSE,
+                card_header("Do UPR recommendations impact health outcomes? (a preliminary analysis)"),
                 
-                # 1. The Wrapper: This is a standard div that contains the floating image and text.
-                div(
-                  style = "overflow: hidden;",
+                card_body(
                   
-                  # 2. The Floated Clickable Image (using R actionLink)
-                  # We put the actionLink here, and use R's tag$div to wrap the image 
-                  # and apply the float styles.
-                  tags$div(
-                    class = "image-float-wrapper",
-                    style = "float: left; max-width: 40%; height: auto; margin: 5px 5px 5px 5px;", # Apply float styles here
-                    actionLink(
-                      inputId = "upr_analysis", # This ID triggers the modal in the server
-                      label = img(
-                        src = "full_plot.png",
-                        style = "height: auto; width: 100%; object-fit: contain; cursor: pointer;"
+                  # 1. The Wrapper: This is a standard div that contains the floating image and text.
+                  div(
+                    style = "overflow: hidden;",
+                    
+                    # 2. The Floated Clickable Image (using R actionLink)
+                    # We put the actionLink here, and use R's tag$div to wrap the image 
+                    # and apply the float styles.
+                    tags$div(
+                      class = "image-float-wrapper",
+                      style = "float: left; max-width: 40%; height: auto; margin: 5px 5px 5px 5px;", # Apply float styles here
+                      actionLink(
+                        inputId = "upr_analysis", # This ID triggers the modal in the server
+                        label = img(
+                          src = "full_plot.png",
+                          style = "height: auto; width: 100%; object-fit: contain; cursor: pointer;"
+                        )
                       )
-                    )
-                  ),
-                  
-                  # 3. All Text Content (using HTML to ensure it wraps the floated div)
-                  HTML(
-                    "
+                    ),
+                    
+                    # 3. All Text Content (using HTML to ensure it wraps the floated div)
+                    HTML(
+                      "
         <p>We investigated the potential relationship between <a href='https://www.ohchr.org/en/hr-bodies/upr/basic-facts' target='_blank'>Universal Periodic Review (UPR)</a> recommendations and health outcomes, using maternal mortality as a key indicator. Specifically, we examined whether supporting UPR recommendations on maternal health from the first three cycles was associated with changes in the maternal mortality ratio (MMR) across countries.</p>
         <p>Our preliminary analysis indicates that countries with a higher proportion of accepted recommendations, as well as higher  number of UPR recommendations related to maternal health, show a significant correlation with reductions in MMR over time.</p>
         <br>
@@ -1349,11 +1385,17 @@ Under the Right to Health, States have the following obligations:
         <p>This preliminary analysis suggests that the UPR process may have impact in contributing towards positive health outcomes as demonstrated by the relationship between the UPR recommendations pertaining to maternal health and reduction of MMR over time.</p>
         <p>It is important to note that these results should be interpreted with caution, as this analysis cannot establish causality. Nevertheless, it signifies a potentially important role of engagement with the UPR process and its associated peer review process in enhancing political support and attention for critical health challenges.</p>
         "
+                    )
                   )
                 )
-              )
+              ),
+              markdown("<p>Contact us at info@cehdi.org for more information or to give feedback.</p>")
             )
   ),
+  
+  # ### UPR Impact ------------------
+  # nav_panel(title = "UPR impact", icon = icon("square-poll-vertical"),
+  # ),
   ### UPR recommendations ----------------
   nav_menu(title = "UPR recommendations", icon = icon("people-arrows"),
            #### UPR: Regional -----------------------
@@ -1889,11 +1931,13 @@ server <- function(input, output, session) {
   # Small illustrative map: greys out the globe, highlights the hero's
   # selected country in red (mirrors the sidebar's global_map).
   output$hero_map <- renderPlot({
-    req(input$hero_country)
-    state_geo |>
+    sel <- input$hero_country
+    if (is.null(sel)) sel <- ""
+    
+    base_map <- state_geo |>
       mutate(hero_sel = factor(
         case_when(
-          country == input$hero_country ~ "Country",
+          country == sel ~ "Country",
           .default = "Other"
         ),
         levels = c("Country", "Other")
@@ -1905,6 +1949,27 @@ server <- function(input, output, session) {
       theme_void() +
       guides(fill = "none", color = "none") +
       theme(plot.margin = margin(0, 0, 0, 0))
+    
+    if (nzchar(sel)) {
+      sur_row <- state_geo |> filter(country == sel)
+      area_val <- sur_row |> st_area() |> as.numeric()
+      if (length(area_val) > 0 && area_val <= 10^11) {
+        bbox_sel <- sur_row |> st_bbox()
+        base_map <- base_map + geom_rect(
+          aes(
+            xmin = bbox_sel["xmin"] - 2,
+            xmax = bbox_sel["xmax"] + 2,
+            ymin = bbox_sel["ymin"] - 2,
+            ymax = bbox_sel["ymax"] + 2
+          ),
+          fill = "transparent",
+          color = "tomato2",
+          linewidth = 0.5
+        )
+      }
+    }
+    
+    base_map
   })
   
   # "Explore Data": reset the sidebar's regional filters to Global (so the
@@ -2040,9 +2105,7 @@ server <- function(input, output, session) {
   
   observeEvent(input$selected_region, {
     choices <- region_selection() |> 
-      # Remove non-member states (no data, causes crash)
       filter(!country %in% c("Western Sahara","Greenland" ,
-                             # "Palestine",
                              "Vatican",
                              "Siberian Artifact")) |>  
       select(country) |> distinct() |> arrange(country) |> 
@@ -2052,7 +2115,7 @@ server <- function(input, output, session) {
       choices = choices,
       selected = choices[1]
     )
-  })
+  }, ignoreInit = TRUE)
   
   ## Helper Reactives for Plotting -----------------------------------------
   SUR_region <- reactive({
