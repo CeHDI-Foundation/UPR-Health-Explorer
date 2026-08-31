@@ -1025,7 +1025,7 @@ ui <- page_navbar(
        1200px while the surrounding gradient just keeps expanding around it. */
     gap: clamp(36px, 4vw, 72px);
     align-items: start;
-    max-width: min(1600px, 92vw);
+    max-width: min(1800px, 92vw);
     margin: 0 auto;
     width: 100%;
   }
