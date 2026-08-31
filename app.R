@@ -1177,7 +1177,21 @@ body.sidebar-toggle-white .bslib-sidebar-layout .collapse-toggle .bi {
       .sur-banner-btn:hover {
         background: #d9403f;
           color: #fff;
-      }"))
+      }")),
+    # 
+    tags$style(HTML("
+                    .dataTables_wrapper {
+  width: 100% !important;
+  max-width: 100%;
+  overflow-x: auto;
+}
+table.dataTable {
+  width: 100% !important;
+  table-layout: auto;
+}
+.card-body:has(.dataTables_wrapper) {
+  overflow-x: auto;
+}"))
   ),
   
   
