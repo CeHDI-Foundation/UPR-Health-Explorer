@@ -2306,49 +2306,55 @@ server <- function(input, output, session) {
   
   ## MAPS (from original sidebar) ------------------------------------------
   output$global_map <- renderPlot({
-    req(input$selected_SUR)
+    sel <- input$selected_SUR
+    if (is.null(sel)) sel <- ""
+    
     p1 <- state_geo_reactive() |>
-      mutate(selected_sur = factor(case_when(country == input$selected_SUR ~ input$selected_SUR,
-                                             region_dashboard == input$selected_region ~ "Region",
-                                             .default = "Other"),
-                                   levels = c(input$selected_SUR,"Region", "Other"))) |>
+      mutate(selected_sur = factor(
+        case_when(
+          nzchar(sel) & country == sel ~ sel,
+          nzchar(sel) & region_dashboard == input$selected_region ~ "Region",
+          .default = "Other"
+        ),
+        levels = c(if (nzchar(sel)) sel else character(0), "Region", "Other")
+      )) |>
       ggplot(aes(geometry = polygon, color = selected_sur, fill = selected_sur, lwd = selected_sur)) +
       geom_sf() +
-      scale_color_manual(values = c("tomato2", "grey60", "grey85")) +
-      scale_linewidth_manual(values = c(0.8,0.3, 0.3)) +
-      scale_fill_manual(values = c("tomato2","grey70", "grey95")) +
-      scale_alpha_manual(values = c(1,1,0.3))+
+      scale_color_manual(values = setNames(
+        c("tomato2", "grey60", "grey85"),
+        c(if (nzchar(sel)) sel else "zzz_unused", "Region", "Other")
+      ), na.value = "grey85") +
+      scale_linewidth_manual(values = setNames(
+        c(0.8, 0.3, 0.3),
+        c(if (nzchar(sel)) sel else "zzz_unused", "Region", "Other")
+      ), na.value = 0.3) +
+      scale_fill_manual(values = setNames(
+        c("tomato2", "grey70", "grey95"),
+        c(if (nzchar(sel)) sel else "zzz_unused", "Region", "Other")
+      ), na.value = "grey95") +
       theme_bw() +
       theme(
         panel.grid = element_blank(),
         axis.text = element_blank(), axis.ticks = element_blank()
       ) +
-      labs(
-        title = NULL,
-        fill = NULL,
-        color = NULL, lwd = NULL, alpha=NULL
-      ) +
-      guides(
-        fill = "none", lwd = "none", color = "none", alpha="none"
-      )
+      labs(title = NULL, fill = NULL, color = NULL, lwd = NULL) +
+      guides(fill = "none", lwd = "none", color = "none")
     
-    if (sur_area() > 10^11) {
-      p2 <- p1
-    } else {
-      p2 <- p1 + geom_rect(
-        aes(
-          xmin = bbox_selected_SUR()["xmin"] - 2,
-          xmax = bbox_selected_SUR()["xmax"] + 2,
-          ymin = bbox_selected_SUR()["ymin"] - 2,
-          ymax = bbox_selected_SUR()["ymax"] + 2
-        ),
-        fill = "transparent",
-        color = "tomato2",
-        linewidth = 0.5
-      )
+    if (nzchar(sel)) {
+      area_val <- state_geo_reactive() |> filter(country == sel) |> st_area() |> as.numeric()
+      if (length(area_val) > 0 && area_val <= 10^11) {
+        bbox_sel <- state_geo_reactive() |> filter(country == sel) |> st_bbox()
+        p1 <- p1 + geom_rect(
+          aes(
+            xmin = bbox_sel["xmin"] - 2, xmax = bbox_sel["xmax"] + 2,
+            ymin = bbox_sel["ymin"] - 2, ymax = bbox_sel["ymax"] + 2
+          ),
+          fill = "transparent", color = "tomato2", linewidth = 0.5
+        )
+      }
     }
     
-    p2 + theme(plot.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"))
+    p1 + theme(plot.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"))
   })
   
   output$regional_map <- renderPlot({
