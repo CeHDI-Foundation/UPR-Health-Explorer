@@ -840,6 +840,19 @@ bs_theme(
   base_font = font_google("Lato", local = FALSE)
 )  
 
+# Pages whose main content depends on input$selected_SUR
+country_dependent_tabs <- c(
+  "By State", "Universal Health Coverage",
+  "Mortality Rate", "HPV Vaccination", "Cervical Cancer Screening",
+  "Maternal Mortality", "Skilled birth attendance", "Abortion",
+  "Family planning", "Legal framework"
+)
+
+sur_banner_condition <- paste0(
+  "(", paste0("input.main_navbar == '", country_dependent_tabs, "'", collapse = " || "),
+  ") && (!input.selected_SUR || input.selected_SUR === '')"
+)
+
 # Switch to page_navbar for a top navigation bar
 ui <- page_navbar(
   id = "main_navbar",
@@ -970,6 +983,13 @@ ui <- page_navbar(
   window.addEventListener('load', fixHeroBleed);
   window.addEventListener('resize', fixHeroBleed);
   $(document).on('shiny:sessioninitialized', fixHeroBleed);
+")),
+    
+    tags$script(HTML("
+  Shiny.addCustomMessageHandler('toggle-arrow-style', function(cls) {
+    document.body.classList.remove('sidebar-toggle-blue', 'sidebar-toggle-white');
+    document.body.classList.add(cls);
+  });
 ")),
     # ---- Hero / "Health & Rights Observatory" landing panel -----------------
     tags$style(HTML("
@@ -1105,15 +1125,18 @@ ui <- page_navbar(
      navy sidebar background it defaults to dark and becomes hard to see,
      so it's forced to white here regardless of which bslib version's
      class name is in play. */
-  .bslib-sidebar-layout > .collapse-toggle,
-  .bslib-sidebar-layout .collapse-toggle {
-    color: #ffffff !important;
-  }
-  .bslib-sidebar-layout .collapse-toggle svg,
-  .bslib-sidebar-layout .collapse-toggle .bi {
-    fill: #ffffff !important;
-    color: #ffffff !important;
-  }
+  body.sidebar-toggle-blue .bslib-sidebar-layout .collapse-toggle,
+body.sidebar-toggle-blue .bslib-sidebar-layout .collapse-toggle svg,
+body.sidebar-toggle-blue .bslib-sidebar-layout .collapse-toggle .bi {
+  color: #1c164d !important;
+  fill: #1c164d !important;
+}
+body.sidebar-toggle-white .bslib-sidebar-layout .collapse-toggle,
+body.sidebar-toggle-white .bslib-sidebar-layout .collapse-toggle svg,
+body.sidebar-toggle-white .bslib-sidebar-layout .collapse-toggle .bi {
+  color: #ffffff !important;
+  fill: #ffffff !important;
+}
   @keyframes haroBob {
     0%, 100% { transform: translateX(-50%) translateY(0); }
     50% { transform: translateX(-50%) translateY(7px); }
@@ -1123,8 +1146,38 @@ ui <- page_navbar(
     .haro-hero-grid { grid-template-columns: 1fr; }
     .haro-hero-grid h1 { font-size: clamp(1.6rem, 6vw, 2.1rem); }
   }
-"))
-    
+")),
+    # Conditional panel if no country has been selected
+    conditionalPanel(
+      condition = sur_banner_condition,
+      tags$div(
+        class = "sur-required-banner",
+        tags$span(icon("circle-info"), " Select a country from the sidebar to see country-specific data on this page.")
+      )
+    ),
+    # Styling of conditional panel
+    tags$style(HTML("
+      .sur-required-banner {
+        background: #fff4e5;
+          color: #6b4a12;
+          border-bottom: 1px solid #f0d9a8;
+        padding: 10px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        font-size: 0.9rem;
+        flex-wrap: wrap;
+      }
+      .sur-banner-btn {
+        background: #ec5557;
+          color: #fff;
+          border: none;
+      }
+      .sur-banner-btn:hover {
+        background: #d9403f;
+          color: #fff;
+      }"))
   ),
   
   
@@ -1914,13 +1967,31 @@ server <- function(input, output, session) {
   # Closed by default (see `open = "closed"` in the sidebar UI) so the landing
   # page shows the full-width hero; opens automatically once the visitor
   # moves to any data page, and closes again if they come back to the hero.
+  
+  observe({
+    is_landing <- identical(input$main_navbar, "Health & Rights Observatory")
+    sidebar_open <- isTRUE(input$main_sidebar)
+    cls <- if (is_landing || sidebar_open) "sidebar-toggle-white" else "sidebar-toggle-blue"
+    session$sendCustomMessage("toggle-arrow-style", cls)
+  }) # color of sidebar toggle arrow
+  
   observeEvent(input$main_navbar, {
-    if (input$main_navbar %in% c("By Region")) {
+    if (input$main_navbar == "By Region") {
+      bslib::sidebar_toggle("main_sidebar", open = TRUE, session = session)
+    } else if (input$main_navbar %in% country_dependent_tabs && !isTruthy(input$selected_SUR)) {
       bslib::sidebar_toggle("main_sidebar", open = TRUE, session = session)
     } else {
       bslib::sidebar_toggle("main_sidebar", open = FALSE, session = session)
     }
   }, ignoreInit = TRUE)
+  
+  # Once a country gets picked while the sidebar was auto-opened for this reason, close it again
+  observeEvent(input$selected_SUR, {
+    if (isTruthy(input$selected_SUR) && input$main_navbar %in% country_dependent_tabs) {
+      bslib::sidebar_toggle("main_sidebar", open = FALSE, session = session)
+    }
+  }, ignoreInit = TRUE)
+  
   
   ## Hero panel (Health & Rights Observatory landing) ------------------------
   # Country-only now (region selection lives in the sidebar, not the hero).
@@ -1972,12 +2043,9 @@ server <- function(input, output, session) {
     base_map
   })
   
-  # "Explore Data": reset the sidebar's regional filters to Global (so the
-  # State dropdown's choices always include the hero's pick, however the
-  # sidebar was last filtered), set the state, then jump straight to the
-  # "By State" tab under UPR recommendations for that state.
-  observeEvent(input$hero_explore, {
-    req(input$hero_country)
+  # Shared logic: push the hero's chosen country into the sidebar's country
+  # selector (region filters reset to Global so the choice is always valid).
+  sync_hero_country_to_sidebar <- function(country) {
     updateSelectInput(session, "selected_regional_grouping", selected = "Global")
     updateSelectInput(session, "selected_region", choices = "Global", selected = "Global")
     updateSelectInput(
@@ -1986,10 +2054,21 @@ server <- function(input, output, session) {
         filter(!country %in% c("Western Sahara", "Greenland",
                                "Palestine", "Vatican", "Siberian Artifact")) |>
         select(country) |> distinct() |> arrange(country) |> pull(country),
-      selected = input$hero_country
+      selected = country
     )
-    # "By State" is a nav_panel nested inside the "UPR recommendations"
-    # nav_menu; page_navbar still selects it by its own (unique) title.
+  }
+  
+  # React the moment a country is picked in the hero card — no button needed
+  observeEvent(input$hero_country, {
+    req(input$hero_country)
+    sync_hero_country_to_sidebar(input$hero_country)
+  }, ignoreInit = TRUE)
+  
+  # "Explore Data": same sync (redundant if hero_country observer already ran,
+  # but harmless), then jump to "By State"
+  observeEvent(input$hero_explore, {
+    req(input$hero_country)
+    sync_hero_country_to_sidebar(input$hero_country)
     updateNavbarPage(session, "main_navbar", selected = "By State")
   })
   
