@@ -180,50 +180,28 @@ map_insetting <- function(
 }
 
 leaflet_function <- function(data, pal_object, fill_outcome, hover_labels, legend_title = "Legend text", 
-                             coord_selected_SUR, zoom_level, legend_type = "factor", bins_num = 10){
-  leaflet(data = data) |>
+                             coord_selected_SUR, zoom_level, legend_type = "factor", bins_num = 10,
+                             lock_center = TRUE){
+  map <- leaflet(data = data) |>
     setView(lng = coord_selected_SUR[[1]][1], lat = coord_selected_SUR[[1]][2], zoom = zoom_level) %>%
     addPolygons(
       fillColor = ~pal_object(data[[fill_outcome]]),
-      weight = 1,
-      opacity = 1,
-      color = "grey",
-      dashArray = "3",
+      weight = 1, opacity = 1, color = "grey", dashArray = "3",
       fillOpacity = 0.9,
-      # Interaction: Highlight on hover
-      highlightOptions = highlightOptions(
-        weight = 2,
-        color = "#666",
-        dashArray = "",
-        fillOpacity = 1,
-        bringToFront = FALSE
-      ),
-      # Interaction: Tooltip content
+      highlightOptions = highlightOptions(weight = 2, color = "#666", dashArray = "", fillOpacity = 1, bringToFront = FALSE),
       label = hover_labels,
-      labelOptions = labelOptions(
-        style = list("font-weight" = "normal", padding = "3px 8px"),
-        textsize = "15px",
-        direction = "auto"
-      )
+      labelOptions = labelOptions(style = list("font-weight" = "normal", padding = "3px 8px"), textsize = "15px", direction = "auto")
     ) |> 
-    # Add border around the selected SUR
     addPolygons(
       data = data |> filter(selected_sur == TRUE),
-      fill = FALSE,          # No fill (transparent), so the layer below shows through
-      color = "red",         # Red border
-      weight = 3,            # Thicker than the base layer
-      opacity = 1,
-      options = pathOptions(clickable = FALSE) # Make it "click-through" so hover works on layer below
+      fill = FALSE, color = "red", weight = 3, opacity = 1,
+      options = pathOptions(clickable = FALSE)
     )|> 
-    addLegend(
-      pal = pal_object,
-      values = ~data[[fill_outcome]],
-      opacity = 0.7,
-      bins=bins_num,
-      title = legend_title,
-      position = "bottomright"
-    ) |> 
-    htmlwidgets::onRender("
+    addLegend(pal = pal_object, values = ~data[[fill_outcome]], opacity = 0.7, bins = bins_num,
+              title = legend_title, position = "bottomright")
+  
+  if (lock_center) {
+    map <- map |> htmlwidgets::onRender("
       function(el, x) {
         var map = this;
         var lockedCenter = map.getCenter();
@@ -232,6 +210,9 @@ leaflet_function <- function(data, pal_object, fill_outcome, hover_labels, legen
         });
       }
     ")
+  }
+  
+  map
 }
 
 ## UPR helper functions ------------------------------------------
@@ -848,11 +829,6 @@ country_dependent_tabs <- c(
   "Family planning", "Legal framework"
 )
 
-sur_banner_condition <- paste0(
-  "(", paste0("input.main_navbar == '", country_dependent_tabs, "'", collapse = " || "),
-  ") && (!input.selected_SUR || input.selected_SUR === '')"
-)
-
 # Switch to page_navbar for a top navigation bar
 ui <- page_navbar(
   id = "main_navbar",
@@ -1179,14 +1155,6 @@ body.sidebar-toggle-white .bslib-sidebar-layout .collapse-toggle .bi {
     .haro-hero-grid h1 { font-size: clamp(1.6rem, 6vw, 2.1rem); }
   }
 ")),
-    # Conditional panel if no country has been selected
-    conditionalPanel(
-      condition = sur_banner_condition,
-      tags$div(
-        class = "sur-required-banner",
-        tags$span(icon("circle-info"), " Select a country from the sidebar to see country-specific data on this page.")
-      )
-    ),
     # Styling of conditional panel
     tags$style(HTML("
       .sur-required-banner {
@@ -2054,8 +2022,12 @@ server <- function(input, output, session) {
   
   # Once a country gets picked while the sidebar was auto-opened for this reason, close it again
   observeEvent(input$selected_SUR, {
-    if (isTruthy(input$selected_SUR) && input$main_navbar %in% country_dependent_tabs) {
-      bslib::sidebar_toggle("main_sidebar", open = FALSE, session = session)
+    if (!isTruthy(input$selected_SUR)) {
+      if (isTruthy(input$hero_country)) {
+        updateSelectizeInput(session, "hero_country", selected = "")
+      }
+    } else if (!identical(input$hero_country, input$selected_SUR)) {
+      updateSelectizeInput(session, "hero_country", selected = input$selected_SUR)
     }
   }, ignoreInit = TRUE)
   
@@ -2256,10 +2228,14 @@ server <- function(input, output, session) {
                              "Siberian Artifact")) |>  
       select(country) |> distinct() |> arrange(country) |> 
       pull(country)
+    
+    current <- input$selected_SUR
+    new_selected <- if (isTruthy(current) && current %in% choices) current else ""
+    
     updateSelectInput(
       session, "selected_SUR",
       choices = choices,
-      selected = choices[1]
+      selected = new_selected
     )
   }, ignoreInit = TRUE)
   
@@ -2285,24 +2261,26 @@ server <- function(input, output, session) {
       filter(country %in% c(input$selected_SUR)) |>
       st_area() |> as.numeric()
   })
-  
   coord_selected_SUR <- reactive({
-    req(input$selected_SUR)
-    state_geo_reactive() |> 
-      filter(country %in% c(input$selected_SUR)) |>
-      pull(point_centroid)
+    if (isTruthy(input$selected_SUR)) {
+      state_geo_reactive() |> 
+        filter(country %in% c(input$selected_SUR)) |>
+        pull(point_centroid)
+    } else {
+      list(c(10, 15))  # roughly centered world view — match point_centroid's format (lng, lat)
+    }
   })
   
   m_zoom <- reactive({
-    req(input$selected_SUR)
-    if(sur_area()<10^8){8} else if(
-      sur_area()<10^9){7} else if(
-        sur_area() < 10^10){5} else if(
-          sur_area() < 10^11){4} else if(
-            sur_area() < 10^12){3} else if(
-              sur_area() < 10^13){2} else if(
-                sur_area() < 10^15){2} else{1}
-  }) 
+    if (!isTruthy(input$selected_SUR)) return(2)  # world view
+    if (sur_area() < 10^8) { 8 } else if (
+      sur_area() < 10^9) { 7 } else if (
+        sur_area() < 10^10) { 5 } else if (
+          sur_area() < 10^11) { 4 } else if (
+            sur_area() < 10^12) { 3 } else if (
+              sur_area() < 10^13) { 2 } else if (
+                sur_area() < 10^15) { 2 } else { 1 }
+  })
   
   bbox_selected_SUR <- reactive({
     req(input$selected_SUR)
@@ -3055,7 +3033,7 @@ server <- function(input, output, session) {
     leaflet_function(data =  UHC_dat, pal_object = pal, hover_labels = hover_labels, 
                      legend_title = "%",
                      coord_selected_SUR = coord_selected_SUR(),
-                     zoom_level = m_zoom(),
+                     zoom_level = m_zoom(),lock_center = isTruthy(input$selected_SUR),
                      fill_outcome =  "NumericValue")
     
   })
@@ -3089,7 +3067,7 @@ server <- function(input, output, session) {
     leaflet_function(data =  UHC_RMNCH_dat, pal_object = pal, hover_labels = hover_labels, 
                      legend_title = "%",
                      coord_selected_SUR = coord_selected_SUR(),
-                     zoom_level = m_zoom(),
+                     zoom_level = m_zoom(),lock_center = isTruthy(input$selected_SUR),
                      fill_outcome =  "NumericValue")
     
   })
@@ -3097,6 +3075,7 @@ server <- function(input, output, session) {
   ### UHC trend ---------------
   
   output$UHC_trend <- renderPlot({
+    validate(need(isTruthy(input$selected_SUR), "Select a country to see trends compared with its nearest neighbors."))
     # Set a default number of columns
     num_cols <- 3
     # If the plot width is available and less than 600px (i.e., a phone screen),
@@ -3181,7 +3160,7 @@ server <- function(input, output, session) {
     leaflet_function(data =  ccmr_data, pal_object = pal, hover_labels = hover_labels, 
                      legend_title = "",
                      coord_selected_SUR = coord_selected_SUR(),
-                     zoom_level = m_zoom(),
+                     zoom_level = m_zoom(),lock_center = isTruthy(input$selected_SUR),
                      fill_outcome =  "val")
     
   })
@@ -3189,36 +3168,49 @@ server <- function(input, output, session) {
   ### Cervical cancer mortality trend (single country + global) -------
   
   ccmr_trend_object <- reactive({
-    req(input$selected_SUR)
+    has_country <- isTruthy(input$selected_SUR)
+    
+    location_filter <- if (has_country) {
+      c(input$selected_SUR, "Global")
+    } else {
+      "Global"
+    }
     
     ccmr_hist_plot <- cervical_cancer_deaths |>
-      filter(location_name %in% c(input$selected_SUR, "Global")) |>
+      filter(location_name %in% location_filter) |>
       mutate(series = factor(
         case_when(location_name == "Global" ~ "Global average",
                   .default = input$selected_SUR),
-        levels = c(input$selected_SUR, "Global average")
+        levels = if (has_country) c(input$selected_SUR, "Global average") else "Global average"
       ))
     
     # Vaccine introduction year for the selected country, if known
-    intro_year <- HPV_national_alt |>
-      filter(ISO_3_CODE == state_geo_reactive() |>
-               filter(country == input$selected_SUR) |> pull(iso3)) |>
-      pull(year_intr)
+    intro_year <- if (has_country) {
+      iy <- HPV_national_alt |>
+        filter(ISO_3_CODE == state_geo_reactive() |>
+                 filter(country == input$selected_SUR) |> pull(iso3)) |>
+        pull(year_intr)
+      if (length(iy) == 0 || is.infinite(iy)) NA else iy
+    } else {
+      NA
+    }
     
-    intro_year <- if (length(intro_year) == 0 || is.infinite(intro_year)) NA else intro_year
+    title_txt <- if (has_country) {
+      paste0("Trends in cervical cancer mortality — ", input$selected_SUR)
+    } else {
+      "Trends in cervical cancer mortality — Global"
+    }
     
     p <- ccmr_hist_plot |>
       ggplot(aes(x = year, y = val, color = series, fill = series, group = series,
                  text = paste0(series, " - ", year, ": ", sprintf("%.2f", val)))) +
-      # geom_ribbon(aes(ymin = lower, ymax = upper), color = NA, alpha = 0.15) +
       geom_line(linewidth = 1.2) +
-      scale_color_manual(values = c("tomato3", "grey40")) +
-      # scale_fill_manual(values = c("tomato3", "grey40")) +
+      scale_color_manual(values = if (has_country) c("tomato3", "grey40") else c("grey40")) +
       labs(
         x = NULL,
         y = "Cervical cancer mortality rate\n(age-standardized, per 100,000 women)",
         color = NULL, fill = NULL,
-        title = paste0("Trends in cervical cancer mortality — ", input$selected_SUR)
+        title = title_txt
       ) +
       theme_bw() +
       theme(
@@ -3227,7 +3219,7 @@ server <- function(input, output, session) {
         plot.title = ggtext::element_textbox_simple(margin = margin(t = 5, b = 10, unit = "pt"))
       )
     
-    if (!is.na(intro_year)) {
+    if (has_country && !is.na(intro_year)) {
       p <- p +
         geom_vline(aes(xintercept = intro_year, linetype = "Vaccine introduced"),
                    color = "steelblue4", linewidth = 0.7) +
@@ -3294,7 +3286,7 @@ server <- function(input, output, session) {
     leaflet_function(data = hpv_dat, pal_object = pal, hover_labels = hover_labels,
                      legend_title = "%",
                      coord_selected_SUR = coord_selected_SUR(),
-                     zoom_level = m_zoom(),
+                     zoom_level = m_zoom(),lock_center = isTruthy(input$selected_SUR),,
                      fill_outcome = "Full recommended schedule")
   })
   
@@ -3322,7 +3314,7 @@ server <- function(input, output, session) {
     leaflet_function(data = screening_dat, pal_object = pal, hover_labels = hover_labels,
                      legend_title = "%",
                      coord_selected_SUR = coord_selected_SUR(),
-                     zoom_level = m_zoom(),
+                     zoom_level = m_zoom(),lock_center = isTruthy(input$selected_SUR),
                      fill_outcome = "NumericValue")
   })
   ## Maternal health outputs --------------------------------
@@ -3352,14 +3344,14 @@ server <- function(input, output, session) {
     leaflet_function(data =  mmr_data, pal_object = pal, hover_labels = hover_labels, 
                      legend_title = "MMR",
                      coord_selected_SUR = coord_selected_SUR(),
-                     zoom_level = m_zoom(),
+                     zoom_level = m_zoom(),lock_center = isTruthy(input$selected_SUR),
                      fill_outcome =  "mmr_cat")
     
   })
   
   #### Neighbors comparison over time -------------------------
   output$mmr_time_plot_neighbors <- renderPlot({
-    
+    validate(need(isTruthy(input$selected_SUR), "Select a country to see trends compared with its nearest neighbors."))
     # Set a default number of columns
     num_cols <- 3
     # If the plot width is available and less than 600px (i.e., a phone screen),
@@ -3516,7 +3508,7 @@ server <- function(input, output, session) {
     leaflet_function(data =  skilled_birth_dat, pal_object = pal, hover_labels = hover_labels, 
                      legend_title = "%",
                      coord_selected_SUR = coord_selected_SUR(),
-                     zoom_level = m_zoom(),
+                     zoom_level = m_zoom(),lock_center = isTruthy(input$selected_SUR),
                      fill_outcome =  "NumericValue")
     
   })
@@ -3525,7 +3517,7 @@ server <- function(input, output, session) {
   
   ##### Neighbors --------------
   output$skilled_birth_plot_neighbors <- renderPlot({
-    
+    validate(need(isTruthy(input$selected_SUR), "Select a country to see trends compared with its nearest neighbors."))
     # Set a default number of columns
     num_cols <- 3
     # If the plot width is available and less than 600px (i.e., a phone screen),
@@ -3608,14 +3600,14 @@ server <- function(input, output, session) {
     leaflet_function(data =  institutional_birth_dat, pal_object = pal, hover_labels = hover_labels, 
                      legend_title = "%",
                      coord_selected_SUR = coord_selected_SUR(),
-                     zoom_level = m_zoom(),
+                     zoom_level = m_zoom(),lock_center = isTruthy(input$selected_SUR),
                      fill_outcome =  "NumericValue")
     
   })
   
   ##### Neighbors --------------
   output$births_facility_plot_neighbors <- renderPlot({
-    
+    validate(need(isTruthy(input$selected_SUR), "Select a country to see trends compared with its nearest neighbors."))
     # Set a default number of columns
     num_cols <- 3
     # If the plot width is available and less than 600px (i.e., a phone screen),
@@ -3694,7 +3686,7 @@ server <- function(input, output, session) {
     leaflet_function(data =  world_abortion_laws_data, pal_object = pal, hover_labels = hover_labels, 
                      legend_title = NULL,
                      coord_selected_SUR = coord_selected_SUR(),
-                     zoom_level = m_zoom(),
+                     zoom_level = m_zoom(),lock_center = isTruthy(input$selected_SUR),
                      fill_outcome =  "category")
     
   })
@@ -3726,7 +3718,7 @@ server <- function(input, output, session) {
     leaflet_function(data =  abortion_rate_data, pal_object = pal, hover_labels = hover_labels, 
                      legend_title = NULL,
                      coord_selected_SUR = coord_selected_SUR(),
-                     zoom_level = m_zoom(),
+                     zoom_level = m_zoom(),lock_center = isTruthy(input$selected_SUR),
                      fill_outcome =  "NumericValue")
     
   })
@@ -3758,7 +3750,7 @@ server <- function(input, output, session) {
     leaflet_function(data =  unintended_pregnancy_data, pal_object = pal, hover_labels = hover_labels, 
                      legend_title = NULL,
                      coord_selected_SUR = coord_selected_SUR(),
-                     zoom_level = m_zoom(),
+                     zoom_level = m_zoom(),lock_center = isTruthy(input$selected_SUR),
                      fill_outcome =  "NumericValue")
     
   })
@@ -3831,7 +3823,7 @@ server <- function(input, output, session) {
     leaflet_function(data =  abortion_deaths_data, pal_object = pal, hover_labels = hover_labels, 
                      legend_title = NULL,
                      coord_selected_SUR = coord_selected_SUR(),
-                     zoom_level = m_zoom(),
+                     zoom_level = m_zoom(),lock_center = isTruthy(input$selected_SUR),
                      fill_outcome =  "abortion_deaths_cat")
     
   })
@@ -3867,7 +3859,7 @@ server <- function(input, output, session) {
     leaflet_function(data =  family_planning_dat, pal_object = pal, hover_labels = hover_labels, 
                      legend_title = "%",
                      coord_selected_SUR = coord_selected_SUR(),
-                     zoom_level = m_zoom(),
+                     zoom_level = m_zoom(),lock_center = isTruthy(input$selected_SUR),
                      fill_outcome =  "NumericValue")
     
   })
@@ -3905,7 +3897,7 @@ server <- function(input, output, session) {
     leaflet_function(data =  adolescent_birth_rate_dat, pal_object = pal, hover_labels = hover_labels, 
                      legend_title = NULL,
                      coord_selected_SUR = coord_selected_SUR(),
-                     zoom_level = m_zoom(),
+                     zoom_level = m_zoom(),lock_center = isTruthy(input$selected_SUR),
                      fill_outcome =  "NumericValue")
     
   })
@@ -3938,7 +3930,7 @@ server <- function(input, output, session) {
     leaflet_function(data =  constitution_data, pal_object = pal, hover_labels = hover_labels, 
                      legend_title = NULL,
                      coord_selected_SUR = coord_selected_SUR(),
-                     zoom_level = m_zoom(),
+                     zoom_level = m_zoom(),lock_center = isTruthy(input$selected_SUR),
                      fill_outcome =  "const_anyhealth")
     
   })
@@ -3972,7 +3964,7 @@ server <- function(input, output, session) {
     leaflet_function(data =  ICESCR_data, pal_object = pal, hover_labels = hover_labels, 
                      legend_title = NULL,
                      coord_selected_SUR = coord_selected_SUR(),
-                     zoom_level = m_zoom(),
+                     zoom_level = m_zoom(),lock_center = isTruthy(input$selected_SUR),
                      fill_outcome =  "convent_status")
     
   })
