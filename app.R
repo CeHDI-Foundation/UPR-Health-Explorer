@@ -1349,7 +1349,7 @@ Grouping by Fragile/Conflict-affected Situations (**FCS status**) was made accor
                         href = "#upr_impact_anchor",
                         class = "haro-impact-link haro-impact-link--sub",
                         onclick = "document.getElementById('upr_impact_anchor').scrollIntoView({behavior:'smooth'}); return false;",
-                        "What is its impact on the right to health? ", icon("arrow-right")
+                        "What is UPR's impact on the right to health? ", icon("arrow-right")
                       )
                     ),
                     tags$div(
