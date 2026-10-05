@@ -107,7 +107,12 @@ df_0 <- df_0 |>
 df_0_merged <- bind_rows(df_0, readRDS(here("data", "UPR_WG_docs", "recs_combined.rds"))) |> 
   mutate(
     across(c(provisional, manual_upload), \(x) case_when(is.na(x) ~ FALSE, .default = x))
-     )
+     )|> # Saint Lucia: in the UHRI export, the 2nd-cycle recommendations are wrongly recorded under
+  filter(!(                   # session 31 (Cycle 3). They are added with the correct session from the manual upload,
+    !manual_upload &          # so the mislabelled official rows are removed to avoid duplicates.
+      str_detect(coalesce(countries_concerned, ""), "Saint Lucia") &
+      str_detect(coalesce(upr_session, ""), "\\b31")
+  ))
 
 df_0_merged_test <- df_0_merged |>
   mutate(countries_concerned = str_remove(countries_concerned, "- "),
