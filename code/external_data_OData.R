@@ -871,8 +871,8 @@ HPV_coverage_alt <- read_xlsx(here("data", "HPV_coverage_alt.xlsx"), sheet = "Sh
   janitor::clean_names() |> 
   rename(iso3=code) |>
   filter(!str_detect(group, "^Exported")) |> 
-  mutate(antigen_dose = case_when(antigen == "15HPVC_F" ~ "First dose",
-                                  antigen == "15HPV1_F" ~ "Full recommended schedule"))
+  mutate(antigen_dose = case_when(antigen == "15HPV1_F" ~ "First dose",
+                                  antigen == "15HPVC_F" ~ "Full recommended schedule"))
 
 
 HPV_coverage_alt_wide <- HPV_coverage_alt |>
