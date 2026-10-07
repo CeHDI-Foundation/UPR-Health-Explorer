@@ -505,7 +505,7 @@ upr_ggplotly <- function(p, title_text, fix_strip_labels = FALSE,
     tooltip = c("text"),
     source = "click"
   )
-  
+  fig <- plotly::event_register(fig, "plotly_click")
   if (fix_strip_labels) {
     # ggplotly renders side strips with an angle (usually -90 or 90);
     # catch those, make them horizontal, and move them to the left
@@ -709,7 +709,7 @@ proportion_png_download <- function(data_reactive, name_reactive, by_state,
 # Table of recommendation texts shown next to the plots, driven by clicks on
 # any of the plotly charts (shared "click" event source). Call inside
 # DT::renderDT() — it reads event_data() and req()
-upr_click_table <- function(data) {
+upr_click_table <- function(data, event.data = NULL, selection_label = "the current selection") {
   plot_data <- data |>
     select(text_2, state_under_review, response_upr, cycle, health_related:other_health_related, document_code,
            recommending_state_upr, recommending_state_upr_comma) |>
@@ -722,21 +722,19 @@ upr_click_table <- function(data) {
     filter(value, name != "health_related") |>
     left_join(theme_labels, by = c("name" = "variable"))
   
-  event.data <- event_data("plotly_click", source = "click")
+  # event.data <- event_data("plotly_click", source = "click")
   
   is_default <- is.null(event.data)
   
   if (is_default) {
-    # No click yet: default to the single largest theme+response combination
-    # (i.e. the biggest bar segment in the chart) so the table isn't blank.
-    default_info <- plot_data |>
-      count(theme_label, response_upr, sort = TRUE) |>
-      slice(1)
-    
-    clicked_theme       <- as.character(default_info$theme_label)
-    clicked_response    <- as.character(default_info$response_upr)
+
     clicked_cycle       <- NA
     clicked_recommending <- NA
+    
+    # One row per recommendation: every health-related recommendation in the selection
+    res <- data |>
+      filter(!is.na(health_related), health_related != "Other")
+    
   } else {
     # Split the customdata back into its parts: theme|response|cycle|recommending
     clicked_info <- strsplit(event.data$customdata, "|", fixed = TRUE)[[1]]
@@ -744,13 +742,15 @@ upr_click_table <- function(data) {
     clicked_response     <- clicked_info[2]
     clicked_cycle        <- clicked_info[3]
     clicked_recommending <- clicked_info[4]
+    
+    res <- plot_data |>
+      filter(
+        theme_label == clicked_theme,
+        response_upr == clicked_response
+      )
   }
   
-  res <- plot_data |>
-    filter(
-      theme_label == clicked_theme,
-      response_upr == clicked_response
-    )
+
   if (!(is.na(clicked_cycle) | clicked_cycle == "NA")) {
     res <- res |> filter(cycle == clicked_cycle)
   }
@@ -774,24 +774,44 @@ upr_click_table <- function(data) {
       ) |> select(-recommending_state_upr, -recommending_state_upr_comma)
   }
   
-  caption_text <- if (is_default) {
-    paste0("Theme: ", clicked_theme, " — ", clicked_response,
-           " (default view; click a bar chart to explore a specific selection)")
+  label <- htmltools::htmlEscape(selection_label)
+  
+  caption_html <- if (is_default) {
+    paste0("<strong>All health-related recommendations for ", label, "</strong><br>",
+           "Click a bar in the chart to view the recommendations for that theme")
   } else {
-    paste0("Theme: ", clicked_theme, " — ", clicked_response)
+    paste0("<strong>", label, "</strong><br>",
+           "Theme: ", htmltools::htmlEscape(clicked_theme), " \u2014 ",
+           htmltools::htmlEscape(clicked_response))
   }
   
   DT::datatable(res2,
                 filter = "top",
-                extensions = 'FixedHeader',
-                caption = tags$caption(
-                  style = "caption-side: top; text-align: left;",
-                  caption_text
-                ),
+                fillContainer = TRUE,
                 options = list(
-                  pageLength = 10
-                  , fixedHeader = TRUE
-                  , selectize = list(on = 'change')
+                  # top row: caption + search / table / bottom row: info + pages
+                  dom = "<'dt-top'<'dt-caption'>f>t<'dt-bottom'ip>",
+                  pageLength = 25,
+                  autoWidth = TRUE,
+                  columnDefs = list(
+                    list(width = "58%", targets = 0),   # Recommendation text
+                    list(width = "17%", targets = 1),   # SUR
+                    list(width = "10%", targets = 2),   # Cycle
+                    list(width = "15%", targets = 3)    # Response
+                  ),
+                  language = list(
+                    search            = "Search in selection",
+                    searchPlaceholder = "",
+                    info              = "_START_\u2013_END_ of _TOTAL_",
+                    infoFiltered      = "(filtered from _MAX_)",
+                    infoEmpty         = "No recommendations",
+                    paginate          = list(previous = "\u2039", `next` = "\u203A")
+                  ),
+                  # write the caption text into the top row
+                  initComplete = DT::JS(sprintf(
+                    "function() { $(this.api().table().container()).find('.dt-caption').html(%s); }",
+                    jsonlite::toJSON(caption_html, auto_unbox = TRUE)
+                  ))
                 ),
                 rownames = FALSE,
                 class = 'cell-border stripe hover compact'
@@ -1178,24 +1198,79 @@ body.sidebar-toggle-white .bslib-sidebar-layout .collapse-toggle .bi {
         background: #d9403f;
           color: #fff;
       }")),
-    # 
+    
+    # Data table styling ####
     tags$style(HTML("
-                    .dataTables_wrapper {
-  width: 100% !important;
-  max-width: 100%;
-  overflow-x: auto;
-}
-table.dataTable {
-  width: 100% !important;
-  table-layout: auto;
-}
-.card-body:has(.dataTables_wrapper) {
-  overflow-x: auto;
-}"))
+      /* One text size for tables and footer buttons, scaling with screen width */
+      :root { --compact-text: clamp(0.72rem, 0.55rem + 0.3vw, 0.9rem); }
+
+      /* Tables: no sideways scrolling, long text wraps instead */
+      .card-body:has(.dataTables_wrapper) { overflow-x: hidden; }
+      .dataTables_wrapper { max-width: 100%; }
+     /* Words stay whole; only a single word longer than its column may break */
+      .dataTables_wrapper table.dataTable td { overflow-wrap: break-word; word-break: normal; }
+
+      /* Tables: smaller text everywhere (rows, headers, filters, search, page numbers) */
+      .dataTables_wrapper,
+      .dataTables_wrapper table.dataTable,
+      .dataTables_wrapper .form-control,
+      .dataTables_wrapper .form-select,
+      .dataTables_wrapper select,
+      .dataTables_wrapper input,
+      .dataTables_wrapper .page-link,
+      .dataTables_wrapper caption { font-size: var(--compact-text); }
+      .dataTables_wrapper table.dataTable td,
+      .dataTables_wrapper table.dataTable th { padding: 0.3rem 0.5rem; }
+      .dataTables_wrapper .page-link { padding: 0.2rem 0.55rem; }
+
+      /* Footer buttons (charts and tables): same size as the table text */
+      .card-footer { padding: 0.4rem 0.75rem; display: flex; flex-wrap: wrap;
+                     gap: 0.4rem; align-items: center; }
+      .card-footer .btn { padding: 0.2rem 0.6rem; font-size: var(--compact-text);
+                          line-height: 1.4; }
+                          
+       /* Top row: caption left, search right */
+      .dataTables_wrapper .dt-top { display: flex; align-items: center;
+        justify-content: space-between; gap: 1rem; margin-bottom: 0.4rem; }
+      .dataTables_wrapper .dt-caption { color: #666; flex: 1; }
+      .dataTables_wrapper .dataTables_filter { margin: 0; flex: None; }
+      .dataTables_wrapper .dataTables_filter label { margin: 0; }
+      .dataTables_wrapper .dataTables_filter input { width: 10.75rem !important; margin: 0; }
+
+      /* Bottom row: count left, pages right */
+      .dataTables_wrapper .dt-bottom { display: flex; align-items: center;
+        justify-content: space-between; gap: 1rem; margin-top: 0.4rem; }
+      .dataTables_wrapper .dataTables_info { padding: 0; color: #666; }
+      .dataTables_wrapper .dataTables_paginate { margin: 0; }
+
+      /* Lighter page numbers: no boxes, only the current page is filled */
+      .dataTables_wrapper .pagination { margin: 0; gap: 2px; flex-wrap: nowrap; }
+      .dataTables_wrapper .page-link { border: none; border-radius: 4px;
+        background: transparent; color: #1c164d; }
+      .dataTables_wrapper .page-item.active .page-link { background: #1c164d; color: #fff; }
+      .dataTables_wrapper .page-item.disabled .page-link { background: transparent; color: #aaa; }
+      .dataTables_wrapper .page-link:hover { background: #ecebf3; }
+
+      /* No empty gap above the table when the Clear selection button is hidden */
+      .card-body > .shiny-html-output:empty { display: none; }
+      
+     /* Card tab titles: scale with the screen, stay on one line */
+      .card-header .nav-link {
+        font-size: clamp(0.75rem, 0.45rem + 0.35vw, 1rem);
+        padding: 0.35rem 0.7rem;
+        white-space: nowrap;
+      }
+    ")),
+    tags$script(HTML("
+      $(document).on('preInit.dt', function() {
+        $.fn.DataTable.ext.pager.numbers_length = 5;
+      });
+    ")),
+    
   ),
   
   
-  ## Sidebar for Controls ----------------------------------------------------
+  # Sidebar for Controls ----------------------------------------------------
   # This sidebar is now accessible via a button on the navbar
   sidebar = sidebar(
     id = "main_sidebar",
@@ -1480,15 +1555,12 @@ Under the Right to Health, States have the following obligations:
               markdown("<p>Contact us at info@cehdi.org for more information or to give feedback.</p>")
             )
   ),
-  
-  # ### UPR Impact ------------------
-  # nav_panel(title = "UPR impact", icon = icon("square-poll-vertical"),
-  # ),
+
   ### UPR recommendations ----------------
   nav_menu(title = "UPR recommendations", icon = icon("people-arrows"),
            #### UPR: Regional -----------------------
            nav_panel(title = "By Region", icon = icon("globe-africa"),
-                     markdown("Click on a bar chart to view the text of the relevent UPR recommendations"),
+                     # uiOutput("upr_summary_regional"),
                      layout_column_wrap(
                        style = css(grid_template_columns = "1fr 1fr"),
                        navset_card_tab(
@@ -1498,7 +1570,7 @@ Under the Right to Health, States have the following obligations:
                                    card(
                                      # fill = FALSE,
                                      card_body(
-                                       min_height = 450,
+                                       min_height = 300,
                                        plotlyOutput("plotly_UPR_regional")
                                      ),
                                      card_footer(
@@ -1515,7 +1587,7 @@ Under the Right to Health, States have the following obligations:
                          nav_panel("Per UPR Cycle",
                                    card(
                                      card_body(
-                                       min_height = 550,
+                                       min_height = 300,
                                        plotlyOutput("plotly_UPR_regional_cycle")
                                      )
                                    )
@@ -1552,15 +1624,19 @@ Under the Right to Health, States have the following obligations:
                          card(
                            full_screen = TRUE,
                            fill=TRUE,
-                           card_body(DTOutput("plotly_table_regional"))
+                           min_height = 500,
+                           card_body(
+                           uiOutput("clear_click_regional_ui"),
+                           DTOutput("plotly_table_regional", fill = TRUE)),
+                           card_footer(uiOutput("region_downloads_ui"))
                          )
                        )
                      )
            ),
            
-           ## UPR - SuR2 ----------------------------------------------------------
+           #### UPR - SuR2 ----------------------------------------------------------
            nav_panel(title = "By State", icon = icon("flag"),
-                     markdown("Click on a bar chart to view the text of the relevent UPR recommendations"),
+                     # uiOutput("upr_summary_SUR"),
                      layout_column_wrap(
                        style = css(grid_template_columns = "1fr 1fr"),
                        navset_card_tab(
@@ -1608,24 +1684,6 @@ Under the Right to Health, States have the following obligations:
                                      )
                                    )
                          ),
-                         nav_panel("Data Table",
-                                   card(fill=TRUE,
-                                        card_body(DTOutput("DT_table")),
-                                        card_footer(
-                                          downloadButton(
-                                            outputId = "download_data_csv",
-                                            label = "State data (csv)"
-                                          ),
-                                          downloadButton(
-                                            outputId = "download_data_xlsx",
-                                            label = "State data (xlsx)"
-                                          ),
-                                          downloadButton(
-                                            outputId = "download_data_csv_all",
-                                            label = "All data (csv)"
-                                          )
-                                        )
-                                   )),
                          nav_panel("Recommending states",
                                    card(
                                      fill = FALSE,
@@ -1640,8 +1698,16 @@ Under the Right to Health, States have the following obligations:
                        layout_column_wrap(
                          card(
                            full_screen = TRUE,
-                           fill=TRUE,
-                           card_body(DTOutput("plotly_table_SUR"))
+                           fill = TRUE,
+                           min_height = 500,
+                           card_body(
+                           uiOutput("clear_click_SUR_ui"),
+                           DTOutput("plotly_table_SUR", fill = TRUE)),
+                           card_footer(
+                             downloadButton("download_data_csv",     "State data (csv)"),
+                             downloadButton("download_data_xlsx",    "State data (xlsx)"),
+                             downloadButton("download_data_csv_all", "All data (csv)")
+                           )
                          )
                        )
                      )
@@ -2618,11 +2684,44 @@ server <- function(input, output, session) {
                  margins = list(l = 0, r = 0, b = 0, t = 30))
   })
   
+  # The currently selected bar (NULL = no selection, table shows everything)
+  upr_click <- reactiveVal(NULL)
+  
+  # "plotly_click-click" is the input plotly creates for source = "click"
+  observeEvent(input[["plotly_click-click"]], {
+    upr_click(suppressWarnings(event_data("plotly_click", source = "click")))
+  }, ignoreNULL = TRUE)
+  
+  # Either "clear" button: forget the selection
+  observeEvent(input$clear_click_regional, upr_click(NULL))
+  observeEvent(input$clear_click_SUR,      upr_click(NULL))
+  
+  # Changing the State or region also resets the selection
+  observeEvent(list(input$selected_SUR, input$selected_region), upr_click(NULL),
+               ignoreInit = TRUE)
+  
+  # The button only appears when a bar is selected
+  output$clear_click_regional_ui <- renderUI({
+    req(upr_click())
+    actionButton("clear_click_regional", "Clear selection", icon = icon("xmark"),
+                 class = "btn-sm btn-outline-secondary")
+  })
+  output$clear_click_SUR_ui <- renderUI({
+    req(upr_click())
+    actionButton("clear_click_SUR", "Clear selection", icon = icon("xmark"),
+                 class = "btn-sm btn-outline-secondary")
+  })
+  outputOptions(output, "clear_click_regional_ui", suspendWhenHidden = FALSE)
+  outputOptions(output, "clear_click_SUR_ui",      suspendWhenHidden = FALSE)
   #### Table -------------------
   output$plotly_table_regional <- DT::renderDT({
-    upr_click_table(filtered_upr_region())
+    upr_click_table(
+      filtered_upr_region(), upr_click(),
+      selection_label = if (identical(input$selected_region, "Global")) "Global Region"
+      else input$selected_region
+    )
   })
-  
+
   ## UPR: SUR Outputs --------------------------------------------------------
   
   ### Plotly ---------------------
@@ -2696,7 +2795,7 @@ server <- function(input, output, session) {
   
   #### Table -------------------
   output$plotly_table_SUR <- DT::renderDT({
-    upr_click_table(filtered_upr())
+    upr_click_table(filtered_upr(), upr_click(), selection_label = input$selected_SUR)
   })
   
   ### General plot --------------------------
@@ -2844,11 +2943,13 @@ server <- function(input, output, session) {
         # state_under_review,recommending_state_upr_comma, document_code, paragraph
         
         text_2, cycle, response_upr,
+        health_related, # useful for users
         any_of(theme_labels_test$variable), 
         state_under_review, recommending_state_upr_comma, 
         document_code, paragraph #, affected_persons, themes
       ) |>
       rename(
+        `Health-related` = health_related,
         `Recommending State(s)` = recommending_state_upr_comma,
         `State under Review` = state_under_review,
         Document  = document_code,
@@ -2883,33 +2984,6 @@ server <- function(input, output, session) {
     #   )
   })
   
-  
-  #### Render table ---------------------
-  output$DT_table <- DT::renderDT({
-    req(nrow(filtered_upr()) > 0)
-    DT_table_object() |> 
-      filter(`State under Review` == input$selected_SUR) |> 
-      DT::datatable(
-        # extensions = "Responsive",
-        filter = "top",
-        options = list(
-          pageLength = 100,
-          deferRender = TRUE,
-          scrollY = 800,
-          scrollX = TRUE,
-          scroller = TRUE,
-          autoWidth = TRUE,
-          columnDefs = list(
-            list(width = '350px', targets = c(0)),
-            list(width = '150px', targets = c(5,8,10)),
-            list(width = '100px', targets = c(4,17,26))
-            , list(width = '150px', targets = c(21))
-          )
-        ),
-        rownames = FALSE,
-        class = 'cell-border stripe hover compact'
-      )
-  })
   
   #### Table downloader -----------------------------
   ##### CSV --------------------
@@ -3003,6 +3077,74 @@ server <- function(input, output, session) {
     }
   )
   
+  ##### Region downloads --------------------
+  # Same columns and names as the State download, for any set of recommendations.
+  # (Does not need a State to be selected, unlike DT_table_object().)
+  format_upr_download <- function(d) {
+    labels <- theme_labels |> filter(!variable %in% c("TB_malaria_NTD"))
+    d |>
+      select(
+        text_2, cycle, response_upr, health_related,
+        any_of(labels$variable),
+        state_under_review, recommending_state_upr_comma,
+        document_code, paragraph
+      ) |>
+      rename(
+        `Health-related` = health_related,
+        `Recommending State(s)` = recommending_state_upr_comma,
+        `State under Review`    = state_under_review,
+        Document                = document_code,
+        Paragraph               = paragraph,
+        Recommendation          = text_2,
+        Cycle                   = cycle,
+        `State's response`      = response_upr
+      ) |>
+      dplyr::rename(any_of(setNames(labels$variable, labels$theme_label)))
+  }
+  
+  # File-name-safe version of the region name ("African Region (AFR)" -> "African-Region-AFR")
+  region_file_label <- reactive({
+    gsub("^-|-$", "", gsub("[^A-Za-z0-9]+", "-", input$selected_region))
+  })
+  
+  output$download_region_csv <- downloadHandler(
+    filename = function() paste0("UPR-recommendations-", region_file_label(), ".csv"),
+    content  = function(file) write_csv(format_upr_download(filtered_upr_region()), file)
+  )
+  
+  output$download_region_csv_all <- downloadHandler(
+    filename = function() "UPR-recommendations-all.csv",
+    content  = function(file) write_csv(format_upr_download(sdg_data_dashboard()), file)
+  )
+  
+  output$download_region_xlsx <- downloadHandler(
+    filename = function() paste0("UPR-recommendations-", region_file_label(), ".xlsx"),
+    content  = function(file) {
+      withProgress(message = "Generating xlsx file", value = 0, {
+        wb <- createWorkbook()
+        addWorksheet(wb, "recommendations")
+        writeDataTable(wb, "recommendations",
+                       format_upr_download(filtered_upr_region()),
+                       tableStyle = "TableStyleMedium15")
+        setColWidths(wb, sheet = "recommendations", cols = 1, widths = 70)
+        saveWorkbook(wb, file, overwrite = TRUE)
+      })
+    }
+  )
+  
+  # Region download buttons: for "Global" the region data IS all the data,
+  # so only one button is offered.
+  output$region_downloads_ui <- renderUI({
+    if (identical(input$selected_region, "Global")) {
+      downloadButton("download_region_csv_all", "All data (csv)")
+    } else {
+      tagList(
+        downloadButton("download_region_csv",     "Region data (csv)"),
+        downloadButton("download_region_xlsx",    "Region data (xlsx)"),
+        downloadButton("download_region_csv_all", "All data (csv)")
+      )
+    }
+  })
   ## UHC Outputs ----------------------------------------------------------
   ### UHC Index -------------------
   
@@ -3286,7 +3428,7 @@ server <- function(input, output, session) {
     leaflet_function(data = hpv_dat, pal_object = pal, hover_labels = hover_labels,
                      legend_title = "%",
                      coord_selected_SUR = coord_selected_SUR(),
-                     zoom_level = m_zoom(),lock_center = isTruthy(input$selected_SUR),,
+                     zoom_level = m_zoom(),lock_center = isTruthy(input$selected_SUR),
                      fill_outcome = "Full recommended schedule")
   })
   
