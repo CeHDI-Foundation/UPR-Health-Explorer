@@ -587,10 +587,10 @@ upr_ggplotly <- function(p, title_text, fix_strip_labels = FALSE,
       plot_bgcolor = 'rgba(0,0,0,0)',
       legend = list(
         traceorder = "reversed",
-        x = 0.99,
-        y = 0.01,
+        x = 0,
+        y = 0,
         xanchor = 'right',
-        yanchor = 'bottom',
+        yanchor = 'top',
         bgcolor = 'rgba(0,0,0,0)', # Transparent background
         bordercolor = 'rgba(0,0,0,0)'
       ),
@@ -965,6 +965,11 @@ ui <- page_navbar(
       .selectize-dropdown {
         width: auto !important; /* Let the content define the width */
         min-width: 200px;       /* Set a minimum for good measure */
+      }
+      
+            /* Sidebar width follows the window: 400px on large screens, narrower on smaller ones */
+      @media (max-width: 1400px) {
+        .bslib-sidebar-layout { --_sidebar-width: clamp(240px, 23vw, 400px) !important; }
       }
     ")),
     tags$style(HTML("
