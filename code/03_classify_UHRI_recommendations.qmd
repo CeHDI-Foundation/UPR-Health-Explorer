@@ -579,6 +579,27 @@ migrant_health_keywords_comb1a <- "migrant|refugee|asylum|undocumented|illegal a
 migrant_health_keywords_comb1b <- "health"
 ```
 
+### Health of older persons
+
+> This category covers recommendations addressing the health and access to health services of
+> older persons. A recommendation is classified here only when it names older persons AND has an
+> explicit health or care dimension. Recommendations on pensions, social protection or the rights
+> of older persons in general are not included. As for the other population themes,
+> recommendations that name older persons in a list of groups ARE included.
+
+```{r}
+#| label: kw-older-persons
+# Kept specific on purpose: bare "older" / "aged" would match "aged 18", "older laws", etc.
+older_persons_keywords <- "older person|older people|older women|older men|older adult|older population|older citizen|older generation|elderly|the aged|senior citizen|the elders?\\b|old age|old-age|population ageing|population aging|ageing population|aging population|healthy ageing|healthy aging|ageism"
+
+# Terms that are both older-person- and health-specific: enough on their own
+older_persons_health_keywords <- "geriatr|dementia|alzheimer"
+
+# Care terms missing from health_context_keywords (used for this theme only)
+older_persons_extra_context <- "palliative|nursing home|care home|residential care|long-term care|malnutrition|food securit|food insecurit"
+
+```
+
 ## The theme registry
 
 Each theme that can be matched directly from text is assembled into a `spec`. Themes that
@@ -741,7 +762,9 @@ qa_patterns <- list(
   nutrition            = nutrition_keywords,
   incarcerated         = incarcerated_keywords,
   occupational_health  = occupational_health_keywords,
-  migrant_health       = migrant_health_keywords_comb1a
+  migrant_health       = migrant_health_keywords_comb1a,
+  older_persons        = collapse_pat(older_persons_keywords, older_persons_health_keywords)
+  
 )
 ```
 
@@ -810,6 +833,18 @@ flags$incarcerated <- str_detect(txt, incarcerated_keywords) &
 flags$migrant_health <- str_detect(txt, migrant_health_keywords_comb1a) &
   str_detect(txt, health_context_keywords)
 
+# Health of older persons -------------------------------------------------------------------
+# For this theme only, drop "illness" from the shared health words: with older persons it
+# matched welfare rules ("exemption in cases of illness"), not health care.
+older_persons_health_context <- str_replace(health_context_keywords, fixed("|illness"), "")
+stopifnot(!str_detect(older_persons_health_context, "illness"))
+
+# Older-persons term AND health/care term, OR geriatrics/dementia/Alzheimer's
+flags$older_persons <-
+  (str_detect(txt, older_persons_keywords) &
+     (str_detect(txt, older_persons_health_context) | str_detect(txt, older_persons_extra_context))) |
+  str_detect(txt, older_persons_health_keywords)
+
 # Maternal health (depends on Abortion) ---------------------------------------------------
 # - excluded outright by NOT_maternal_keywords
 # - if also an Abortion rec: only Maternal when an at-risk maternal/abortion context is present
@@ -843,7 +878,7 @@ flags$maternal_health <- flags$maternal_health & !maternal_prevention_only
 # Stage 2 of the umbrella: add themes detected after stage 1 -------------------------------
 flags$health_related <- flags$health_related |
   flags$abortion | flags$maternal_health | flags$contraception |
-  flags$occupational_health | flags$migrant_health
+  flags$occupational_health | flags$migrant_health | flags$older_persons
 
 # Health systems "data" top-up (only when already health-related) -------------------------
 flags$health_systems <- flags$health_systems |
@@ -899,7 +934,7 @@ leaf_themes <- c("health_systems","vaccinations","emergencies","ncd",
                  "communicable","HIV","TB_malaria","NTD",
                  "SRHR","sexual_health","sexual_education","maternal_health","abortion","contraception",
                  "mental_health","GBV","women","CAH","disabilities","LGBTI",
-                 "WASH","nutrition","incarcerated","occupational_health","migrant_health")
+                 "WASH","nutrition","incarcerated","occupational_health","migrant_health", "older_persons")
 any_leaf <- reduce(flags[leaf_themes], `|`)
 
 # Safety net: guarantee the "tag the parent" invariant - every leaf theme implies Health-related.
@@ -955,6 +990,7 @@ theme_meta <- tribble(
   "incarcerated",          "health_related",         "theme",
   "occupational_health",   "health_related",         "theme",
   "migrant_health",        "health_related",         "theme",
+  "older_persons",         "health_related",         "theme",
   "other_health_related",  "health_related",         "theme"
 ) |>
   left_join(theme_labels, by = c("name" = "variable")) |>

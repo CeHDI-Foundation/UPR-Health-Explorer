@@ -37,5 +37,6 @@ theme_labels <- tribble(
   "Communicable_combined", "Communicable diseases (combined)", "Maladies transmissibles (combinées)",
   "maternal_no_abortion", "Maternal Health", "Santé maternelle",
   "abortion_maternal", "Abortion (maternal health context)", "Avortement (contexte de santé maternelle)",
-  "other_health_related", "Other health-related", "Autre lié à la santé"
+  "other_health_related", "Other health-related", "Autre lié à la santé",
+  "older_persons", "Health of older persons", "Santé des personnes âgées",
 )
