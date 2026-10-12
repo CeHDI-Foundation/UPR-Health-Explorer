@@ -306,6 +306,7 @@ build_upr_themes_plot <- function(theme_summary, total_n, lang = "en") {
                                          "Réponse non disponible" = "Response not available")
       else response_upr
     )
+  # Total per theme (all responses together), written at the end of each bar
   x_lab <- if (fr) {
     paste0("% de toutes les recommandations\n(N total = ",
            format(total_n, big.mark = ","), ")")
@@ -388,11 +389,12 @@ build_upr_cycle_plot <- function(theme_summary) {
       axis.line.y = element_blank(),
       plot.title = element_text(hjust = 0.5),
       strip.placement = "outside",
-      strip.text.y.left = element_text(angle = 0, vjust = 0.5, color = "#1c164d"),
       panel.grid = element_blank(),
       panel.spacing = unit(0.01, "lines"),
       plot.background = element_rect(color = "#1c164d", fill = NA),
-      panel.background = element_blank()
+      panel.background = element_blank(),
+      strip.background = element_blank(),
+      strip.text.y.left = element_text(angle = 0, vjust = 0.5, color = "#1c164d", size = 9),
     )
 }
 
@@ -494,34 +496,93 @@ build_upr_recommending_plot <- function(data, top_n = 20,
   p
 }
 
+# Adds an invisible, clickable bar on the empty part of each theme line (to the right
+# of the coloured bar). Clicking it selects the whole theme (all responses).
+# Works on the theme chart and on the per-cycle chart (one line per cycle).
+add_row_targets <- function(fig) {
+  b <- plotly::plotly_build(fig)
+  bars <- Filter(function(tr) identical(tr$type, "bar") && !is.null(tr$customdata), b$x$data)
+  if (!length(bars)) return(b)
+  
+  # ggplotly stores each horizontal segment as: centre (x), length (width), line (base)
+  segs <- bind_rows(lapply(bars, function(tr) tibble(
+    xaxis = if (is.null(tr$xaxis)) "x" else tr$xaxis,
+    yaxis = if (is.null(tr$yaxis)) "y" else tr$yaxis,
+    base  = as.numeric(tr$base),
+    y     = as.numeric(tr$y),
+    end   = as.numeric(tr$x) + as.numeric(tr$width) / 2,
+    cd    = as.character(tr$customdata)
+  )))
+  x_max <- b$x$layout$xaxis$range[2]
+  
+  rows <- segs |>
+    group_by(xaxis, yaxis, base, y) |>
+    summarise(end = max(end), cd = first(cd), .groups = "drop") |>
+    mutate(theme = sapply(strsplit(cd, "|", fixed = TRUE), `[`, 1),
+           cyc   = sapply(strsplit(cd, "|", fixed = TRUE), `[`, 3),
+           width = pmax(x_max - end, 0),
+           x     = end + width / 2)
+  
+  for (ax in unique(rows$yaxis)) {
+    r <- rows[rows$yaxis == ax, ]
+    b$x$data[[length(b$x$data) + 1]] <- list(
+      type = "bar", orientation = "v",
+      x = r$x, width = r$width, y = r$y, base = r$base,
+      customdata = paste(r$theme, "ALL", r$cyc, sep = "|"),
+      xaxis = r$xaxis[1], yaxis = ax,
+      marker = list(color = "rgba(0,0,0,0)"),      # invisible
+      hovertext = paste0(r$theme, ": click to see all its recommendations"),
+      hoverinfo = "text", showlegend = FALSE
+    )
+  }
+  b
+}
+
+
 # Convert a UPR ggplot to plotly with the shared layout (transparent
 # background, bottom-right reversed legend, left-aligned title).
 # fix_strip_labels rotates the facet strip labels of the per-cycle plot to
 # horizontal and moves them into the left margin (pass margins = list(l = 270))
 upr_ggplotly <- function(p, title_text, fix_strip_labels = FALSE,
-                         margins = list(l = 0, r = 40, b = 0, t = 30)) {
+                         margins = list(l = 0, r = 40, b = 0, t = 30),
+                         row_click = FALSE) {
   fig <- ggplotly(
     p,
     tooltip = c("text"),
     source = "click"
   )
   fig <- plotly::event_register(fig, "plotly_click")
+  
+  # Text labels (e.g. totals at the end of the bars): put them to the RIGHT of
+  # their position instead of centred on it, and give them no tooltip
+  fig$x$data <- lapply(fig$x$data, function(tr) {
+    if (identical(tr$mode, "text")) {
+      tr$textposition <- "middle right"
+      tr$hoverinfo    <- "none"
+    }
+    tr
+  })
   if (fix_strip_labels) {
-    # ggplotly renders side strips with an angle (usually -90 or 90);
-    # catch those, make them horizontal, and move them to the left
+    # ggplotly renders side strips with an angle; make them horizontal and put them
+    # on the left, right-aligned against the bars
     fig$x$layout$annotations <- lapply(fig$x$layout$annotations, function(a) {
       if (!is.null(a$textangle) && a$textangle != 0) {
-        a$textangle <- 0       # Make text horizontal
-        a$x <- -0.01           # Move to Left (Adjust this value based on label length)
-        a$xanchor <- "right"   # Align text against the axis
-        a$yanchor <- "middle"  # Center vertically
-        a$align <- "center"
+        a$textangle <- 0
+        a$x <- -0.01
+        a$xanchor <- "right"
+        a$yanchor <- "middle"
+        a$align <- "right"
       }
-      return(a)
+      a
     })
+    # Left margin just wide enough for the longest theme name
+    strip_text <- vapply(fig$x$layout$annotations,
+                         function(a) if (identical(a$xanchor, "right")) as.character(a$text) else "",
+                         character(1))
+    margins$l <- max(nchar(strip_text)) * 6.5 + 15
   }
   
-  fig |>
+  fig <- fig |>
     plotly::layout(
       plot_bgcolor = 'rgba(0,0,0,0)',
       legend = list(
@@ -543,6 +604,8 @@ upr_ggplotly <- function(p, title_text, fix_strip_labels = FALSE,
       ),
       margin = margins
     )
+  if (row_click) fig <- add_row_targets(fig)
+  fig
 }
 
 # PNG downloadHandler for the "Health-related Recommendations" plots.
@@ -709,96 +772,106 @@ proportion_png_download <- function(data_reactive, name_reactive, by_state,
 # Table of recommendation texts shown next to the plots, driven by clicks on
 # any of the plotly charts (shared "click" event source). Call inside
 # DT::renderDT() — it reads event_data() and req()
-upr_click_table <- function(data, event.data = NULL, selection_label = "the current selection") {
-  plot_data <- data |>
-    select(text_2, state_under_review, response_upr, cycle, health_related:other_health_related, document_code,
-           recommending_state_upr, recommending_state_upr_comma) |>
-    pivot_longer(cols = health_related:other_health_related) |>
-    mutate(
-      value = case_when(is.na(value) ~ FALSE,
-                        value == "Other" ~ FALSE,
-                        value != "Other" ~ TRUE)
-    ) |>
-    filter(value, name != "health_related") |>
-    left_join(theme_labels, by = c("name" = "variable"))
+# Rows + caption for the recommendation table. include_all = TRUE also shows the
+# non-health-related recommendations (default view only, not after a click).
+upr_table_data <- function(data, event.data = NULL,
+                           selection_label = "the current selection",
+                           include_all = FALSE) {
+  data <- data |>
+    mutate(is_health = !is.na(health_related) & health_related != "Other")
   
-  # event.data <- event_data("plotly_click", source = "click")
-  
-  is_default <- is.null(event.data)
+  is_default           <- is.null(event.data)
+  clicked_theme        <- NA
+  clicked_response     <- NA
+  clicked_cycle        <- NA
+  clicked_recommending <- NA
   
   if (is_default) {
-
-    clicked_cycle       <- NA
-    clicked_recommending <- NA
-    
-    # One row per recommendation: every health-related recommendation in the selection
-    res <- data |>
-      filter(!is.na(health_related), health_related != "Other")
-    
+    res <- if (include_all) data else data |> filter(is_health)
   } else {
-    # Split the customdata back into its parts: theme|response|cycle|recommending
-    clicked_info <- strsplit(event.data$customdata, "|", fixed = TRUE)[[1]]
+    # customdata is theme|response|cycle|recommending; response = "ALL" when the
+    # empty part of a line was clicked (whole theme)
+    clicked_info         <- strsplit(as.character(event.data$customdata[1]), "|", fixed = TRUE)[[1]]
     clicked_theme        <- clicked_info[1]
     clicked_response     <- clicked_info[2]
     clicked_cycle        <- clicked_info[3]
     clicked_recommending <- clicked_info[4]
     
-    res <- plot_data |>
-      filter(
-        theme_label == clicked_theme,
-        response_upr == clicked_response
-      )
+    res <- data |>
+      select(rowid, text_2, state_under_review, response_upr, cycle, is_health,
+             health_related:other_health_related,
+             recommending_state_upr, recommending_state_upr_comma) |>
+      pivot_longer(cols = health_related:other_health_related) |>
+      mutate(value = case_when(is.na(value) ~ FALSE,
+                               value == "Other" ~ FALSE,
+                               TRUE ~ TRUE)) |>
+      filter(value, name != "health_related") |>
+      left_join(theme_labels, by = c("name" = "variable")) |>
+      filter(theme_label == clicked_theme)
+    
+    if (!identical(clicked_response, "ALL")) {
+      res <- res |> filter(response_upr == clicked_response)
+    }
   }
   
-
   if (!(is.na(clicked_cycle) | clicked_cycle == "NA")) {
     res <- res |> filter(cycle == clicked_cycle)
   }
-  res <- res |>
-    select(text_2, state_under_review, cycle, response_upr, recommending_state_upr, recommending_state_upr_comma) |>
-    mutate(state_under_review = factor(state_under_review)) |>
-    rename(
-      `Recommendation text` = text_2,
-      SUR = state_under_review,
-      Cycle = cycle,
-      Response = response_upr
-    )
-  
-  if (is.na(clicked_recommending) | clicked_recommending == "NA") {
-    res2 <- res |> select(-recommending_state_upr, -recommending_state_upr_comma)
-  } else {
-    res2 <- res |>
-      filter(str_detect(`Recommendation text`, clicked_recommending)
+  if (!(is.na(clicked_recommending) | clicked_recommending == "NA")) {
+    res <- res |>
+      filter(str_detect(text_2, clicked_recommending)
              | str_detect(recommending_state_upr, clicked_recommending)
-             | str_detect(recommending_state_upr_comma, clicked_recommending)
-      ) |> select(-recommending_state_upr, -recommending_state_upr_comma)
+             | str_detect(recommending_state_upr_comma, clicked_recommending))
   }
   
-  label <- htmltools::htmlEscape(selection_label)
+  show_hr_col <- is_default && include_all
   
-  caption_html <- if (is_default) {
+  tab <- res |>
+    transmute(
+      `Recommendation text` = text_2,
+      SUR                   = factor(state_under_review),
+      Cycle                 = cycle,
+      Response              = response_upr,
+      `Health-related`      = if_else(is_health, "Yes", "No"),
+      rowid                                        # hidden, used for the download
+    )
+  if (!show_hr_col) tab <- tab |> select(-`Health-related`)
+  
+  label <- htmltools::htmlEscape(selection_label)
+  caption_html <- if (is_default && include_all) {
+    paste0("<strong>All recommendations for ", label, "</strong><br>")
+  } else if (is_default) {
     paste0("<strong>All health-related recommendations for ", label, "</strong><br>",
            "Click a bar in the chart to view the recommendations for that theme")
   } else {
     paste0("<strong>", label, "</strong><br>",
-           "Theme: ", htmltools::htmlEscape(clicked_theme), " \u2014 ",
-           htmltools::htmlEscape(clicked_response))
+           "Theme: ", htmltools::htmlEscape(clicked_theme),
+           if (identical(clicked_response, "ALL")) " \u2014 all responses"
+           else paste0(" \u2014 ", htmltools::htmlEscape(clicked_response)),
+           if (!(is.na(clicked_cycle) | clicked_cycle == "NA"))
+             paste0(" \u2014 ", htmltools::htmlEscape(clicked_cycle)) else "")
   }
   
-  DT::datatable(res2,
+  list(table = tab, caption = caption_html, show_hr_col = show_hr_col)
+}
+
+# Draws the table from upr_table_data()
+upr_click_table <- function(td) {
+  widths <- if (td$show_hr_col) c("52%", "16%", "9%", "13%", "10%")
+  else                c("58%", "17%", "10%", "15%")
+  col_defs <- c(
+    lapply(seq_along(widths), function(i) list(width = widths[i], targets = i - 1)),
+    list(list(visible = FALSE, searchable = FALSE, targets = length(widths)))   # rowid
+  )
+  
+  DT::datatable(td$table,
                 filter = "top",
                 fillContainer = TRUE,
                 options = list(
-                  # top row: caption + search / table / bottom row: info + pages
                   dom = "<'dt-top'<'dt-caption'>f>t<'dt-bottom'ip>",
                   pageLength = 25,
                   autoWidth = TRUE,
-                  columnDefs = list(
-                    list(width = "58%", targets = 0),   # Recommendation text
-                    list(width = "17%", targets = 1),   # SUR
-                    list(width = "10%", targets = 2),   # Cycle
-                    list(width = "15%", targets = 3)    # Response
-                  ),
+                  columnDefs = col_defs,
                   language = list(
                     search            = "Search in selection",
                     searchPlaceholder = "",
@@ -807,10 +880,9 @@ upr_click_table <- function(data, event.data = NULL, selection_label = "the curr
                     infoEmpty         = "No recommendations",
                     paginate          = list(previous = "\u2039", `next` = "\u203A")
                   ),
-                  # write the caption text into the top row
                   initComplete = DT::JS(sprintf(
                     "function() { $(this.api().table().container()).find('.dt-caption').html(%s); }",
-                    jsonlite::toJSON(caption_html, auto_unbox = TRUE)
+                    jsonlite::toJSON(td$caption, auto_unbox = TRUE)
                   ))
                 ),
                 rownames = FALSE,
@@ -1265,8 +1337,14 @@ body.sidebar-toggle-white .bslib-sidebar-layout .collapse-toggle .bi {
       $(document).on('preInit.dt', function() {
         $.fn.DataTable.ext.pager.numbers_length = 5;
       });
+            .card-body:has(> .plotly), .card-body:has(> .html-widget.plotly) { overflow: hidden; }
     ")),
-    
+    tags$script(HTML("
+      // Recalculate table column widths when a tab becomes visible
+      $(document).on('shown.bs.tab', 'a[data-bs-toggle=\"tab\"]', function () {
+        $($.fn.dataTable.tables(true)).DataTable().columns.adjust();
+      });
+    ")),
   ),
   
   
@@ -1562,7 +1640,7 @@ Under the Right to Health, States have the following obligations:
            nav_panel(title = "By Region", icon = icon("globe-africa"),
                      # uiOutput("upr_summary_regional"),
                      layout_column_wrap(
-                       style = css(grid_template_columns = "1fr 1fr"),
+                       col_widths = breakpoints(sm = 12, lg = c(6, 6)),
                        navset_card_tab(
                          full_screen = TRUE,
                          # title = "Regional Recommendation Themes",
@@ -1621,14 +1699,17 @@ Under the Right to Health, States have the following obligations:
                          )
                        ),
                        layout_column_wrap(
-                         card(
+                         navset_card_tab(
+                           id = "table_tabs_regional",
                            full_screen = TRUE,
-                           fill=TRUE,
-                           min_height = 500,
-                           card_body(
-                           uiOutput("clear_click_regional_ui"),
-                           DTOutput("plotly_table_regional", fill = TRUE)),
-                           card_footer(uiOutput("region_downloads_ui"))
+                           nav_panel("Health-related recommendations", value = "health",
+                                     card_body(fill = TRUE, min_height = 450,
+                                               uiOutput("clear_click_regional_ui"),
+                                               DTOutput("plotly_table_regional", fill = TRUE))),
+                           nav_panel("All recommendations", value = "all",
+                                     card_body(fill = TRUE, min_height = 450,
+                                               DTOutput("table_all_regional", fill = TRUE))),
+                           footer = card_footer(uiOutput("regional_downloads_ui"))
                          )
                        )
                      )
@@ -1638,7 +1719,7 @@ Under the Right to Health, States have the following obligations:
            nav_panel(title = "By State", icon = icon("flag"),
                      # uiOutput("upr_summary_SUR"),
                      layout_column_wrap(
-                       style = css(grid_template_columns = "1fr 1fr"),
+                       col_widths = breakpoints(sm = 12, lg = c(6, 6)),
                        navset_card_tab(
                          full_screen = TRUE,
                          nav_panel("Health-related Recommendations", 
@@ -1662,7 +1743,7 @@ Under the Right to Health, States have the following obligations:
                          nav_panel("Per UPR Cycle", 
                                    card(
                                      card_body(
-                                       min_height = 550,
+                                       min_height = 450,
                                        plotlyOutput("plotly_UPR_SUR_cycle")
                                      )
                                    )
@@ -1673,6 +1754,7 @@ Under the Right to Health, States have the following obligations:
                                      fill = FALSE,
                                      card_body(plotOutput("plot")),
                                      card_footer(
+                                       downloadButton("download_selection_SUR", "Download selection (csv)"),
                                        downloadButton(
                                          outputId = "download_rec_plot_object",
                                          label = "Download as PNG"
@@ -1696,18 +1778,17 @@ Under the Right to Health, States have the following obligations:
                          )
                        ),
                        layout_column_wrap(
-                         card(
+                         navset_card_tab(
+                           id = "table_tabs_SUR",
                            full_screen = TRUE,
-                           fill = TRUE,
-                           min_height = 500,
-                           card_body(
-                           uiOutput("clear_click_SUR_ui"),
-                           DTOutput("plotly_table_SUR", fill = TRUE)),
-                           card_footer(
-                             downloadButton("download_data_csv",     "State data (csv)"),
-                             downloadButton("download_data_xlsx",    "State data (xlsx)"),
-                             downloadButton("download_data_csv_all", "All data (csv)")
-                           )
+                           nav_panel("Health-related", value = "health",
+                                     card_body(fill = TRUE, min_height = 450,
+                                               uiOutput("clear_click_SUR_ui"),
+                                               DTOutput("plotly_table_SUR", fill = TRUE))),
+                           nav_panel("All recommendations", value = "all",
+                                     card_body(fill = TRUE, min_height = 450,
+                                               DTOutput("table_all_SUR", fill = TRUE))),
+                           footer = card_footer(uiOutput("SUR_downloads_ui"))
                          )
                        )
                      )
@@ -2630,7 +2711,7 @@ server <- function(input, output, session) {
   
   ##### Plot output --------------------
   output$plotly_UPR_regional <- renderPlotly({
-    upr_ggplotly(plotly_UPR_regional_object(), input$selected_region)
+    upr_ggplotly(plotly_UPR_regional_object(), input$selected_region, row_click = TRUE)
   })
   
   ##### Plot downloader -------------------
@@ -2667,7 +2748,7 @@ server <- function(input, output, session) {
   ##### Plot output --------------------
   output$plotly_UPR_regional_cycle <- renderPlotly({
     upr_ggplotly(plotly_UPR_regional_cycle_object(), input$selected_region,
-                 fix_strip_labels = TRUE, margins = list(l = 270))
+                 fix_strip_labels = TRUE, margins = list(l = 0, r = 10, b = 0, t = 30), row_click = TRUE)
   })
   
   #### Recommending States  ---------------
@@ -2689,7 +2770,11 @@ server <- function(input, output, session) {
   
   # "plotly_click-click" is the input plotly creates for source = "click"
   observeEvent(input[["plotly_click-click"]], {
-    upr_click(suppressWarnings(event_data("plotly_click", source = "click")))
+    ev <- suppressWarnings(event_data("plotly_click", source = "click"))
+    req(!is.null(ev), "customdata" %in% names(ev), !is.na(ev$customdata[1]))
+    upr_click(ev)
+    nav_select("table_tabs_SUR", "health")
+    nav_select("table_tabs_regional", "health")
   }, ignoreNULL = TRUE)
   
   # Either "clear" button: forget the selection
@@ -2700,7 +2785,6 @@ server <- function(input, output, session) {
   observeEvent(list(input$selected_SUR, input$selected_region), upr_click(NULL),
                ignoreInit = TRUE)
   
-  # The button only appears when a bar is selected
   output$clear_click_regional_ui <- renderUI({
     req(upr_click())
     actionButton("clear_click_regional", "Clear selection", icon = icon("xmark"),
@@ -2711,16 +2795,37 @@ server <- function(input, output, session) {
     actionButton("clear_click_SUR", "Clear selection", icon = icon("xmark"),
                  class = "btn-sm btn-outline-secondary")
   })
+
   outputOptions(output, "clear_click_regional_ui", suspendWhenHidden = FALSE)
   outputOptions(output, "clear_click_SUR_ui",      suspendWhenHidden = FALSE)
   #### Table -------------------
-  output$plotly_table_regional <- DT::renderDT({
-    upr_click_table(
-      filtered_upr_region(), upr_click(),
-      selection_label = if (identical(input$selected_region, "Global")) "Global Region"
-      else input$selected_region
-    )
+   regional_label <- reactive({
+    if (identical(input$selected_region, "Global")) "Global Region" else input$selected_region
   })
+
+  # Health-related tab (reacts to clicks)
+  table_regional_data <- reactive({
+    upr_table_data(filtered_upr_region(), upr_click(), selection_label = regional_label())
+  })
+  output$plotly_table_regional <- DT::renderDT(upr_click_table(table_regional_data()))
+
+  # All recommendations tab (ignores clicks)
+  table_all_regional_data <- reactive({
+    upr_table_data(filtered_upr_region(), NULL, selection_label = regional_label(),
+                   include_all = TRUE)
+  })
+  output$table_all_regional <- DT::renderDT(upr_click_table(table_all_regional_data()))
+
+  table_SUR_data <- reactive({
+    upr_table_data(filtered_upr(), upr_click(), selection_label = input$selected_SUR)
+  })
+  output$plotly_table_SUR <- DT::renderDT(upr_click_table(table_SUR_data()))
+
+  table_all_SUR_data <- reactive({
+    upr_table_data(filtered_upr(), NULL, selection_label = input$selected_SUR,
+                   include_all = TRUE)
+  })
+  output$table_all_SUR <- DT::renderDT(upr_click_table(table_all_SUR_data()))
 
   ## UPR: SUR Outputs --------------------------------------------------------
   
@@ -2738,7 +2843,7 @@ server <- function(input, output, session) {
   
   ##### Plot output --------------------
   output$plotly_UPR_SUR <- renderPlotly({
-    upr_ggplotly(plotly_UPR_SUR_object(), input$selected_SUR)
+    upr_ggplotly(plotly_UPR_SUR_object(), input$selected_SUR,  row_click = TRUE)
   })
   
   ##### Plot downloader -------------------
@@ -2775,7 +2880,7 @@ server <- function(input, output, session) {
   ##### Plot output --------------------
   output$plotly_UPR_SUR_cycle <- renderPlotly({
     upr_ggplotly(plotly_UPR_SUR_cycle_object(), input$selected_SUR,
-                 fix_strip_labels = TRUE, margins = list(l = 270))
+                 fix_strip_labels = TRUE,margins = list(l = 0, r = 10, b = 0, t = 30),  row_click = TRUE)
   })
   
   #### Recommending States  ---------------
@@ -2791,11 +2896,6 @@ server <- function(input, output, session) {
   output$plotly_UPR_SUR_recommending <- renderPlotly({
     upr_ggplotly(plotly_UPR_SUR_recommending_object(), input$selected_SUR,
                  margins = list(l = 0, r = 0, b = 0, t = 30))
-  })
-  
-  #### Table -------------------
-  output$plotly_table_SUR <- DT::renderDT({
-    upr_click_table(filtered_upr(), upr_click(), selection_label = input$selected_SUR)
   })
   
   ### General plot --------------------------
@@ -2927,137 +3027,8 @@ server <- function(input, output, session) {
   
   ### Data table ---------------------------
   
-  #### Table object ----------------
-  DT_table_object <- reactive({
-    req(nrow(filtered_upr()) > 0)
-    theme_labels_test <- theme_labels |> 
-      filter(!variable %in% c("TB_malaria_NTD"))
-    
-    table_upr <- 
-      # filtered_upr() |>
-      sdg_data_dashboard() |>
-      # filter(state_under_review == input$selected_SUR)
-      mutate(state_under_review = factor(state_under_review)) |>
-      select(
-        # text, cycle, response_upr, health_related:other_health_related,
-        # state_under_review,recommending_state_upr_comma, document_code, paragraph
-        
-        text_2, cycle, response_upr,
-        health_related, # useful for users
-        any_of(theme_labels_test$variable), 
-        state_under_review, recommending_state_upr_comma, 
-        document_code, paragraph #, affected_persons, themes
-      ) |>
-      rename(
-        `Health-related` = health_related,
-        `Recommending State(s)` = recommending_state_upr_comma,
-        `State under Review` = state_under_review,
-        Document  = document_code,
-        Paragraph = paragraph,
-        Recommendation = text_2, 
-        Cycle = cycle, 
-        `State's response` = response_upr
-      )
-    
-    rename_map <- setNames(theme_labels_test$variable, theme_labels_test$theme_label)
-    table_upr |>
-      dplyr::rename(any_of(rename_map))
-    
-  })
   
-  
-  #### Table downloader -----------------------------
-  ##### CSV --------------------
-  output$download_data_csv <- downloadHandler(
-    filename = function() {
-      # Create a dynamic filename
-      paste0("UPR-recommendations-", input$selected_SUR, ".csv")
-    },
-    content = function(file) {
-      # Use ggsave to save the reactive plot object to the temp file
-      write_csv(DT_table_object() |> filter(`State under Review` == input$selected_SUR), file)
-    }
-  )
-  
-  ##### CSV - ALL --------------------
-  output$download_data_csv_all <- downloadHandler(
-    filename = function() {
-      # Create a dynamic filename
-      paste0("UPR-recommendations-all", ".csv")
-    },
-    content = function(file) {
-      # Use ggsave to save the reactive plot object to the temp file
-      write_csv(DT_table_object(), file)
-    }
-  )
-  
-  ##### XLSX ---------------------
-  output$download_data_xlsx <- downloadHandler(
-    filename = function() {
-      # Create a dynamic filename
-      paste0("UPR-recommendations-", input$selected_SUR, ".xlsx")
-    },
-    content = function(file) {
-      withProgress(message = 'Generating xlsx file', value = 0, {
-        
-        # incProgress(0.1, detail = "Formatting....")
-        
-        wb <- createWorkbook()
-        addWorksheet(wb, "recommendations")
-        writeDataTable(wb, "recommendations", 
-                       DT_table_object() |> filter(`State under Review` == input$selected_SUR), 
-                       tableStyle = "TableStyleMedium15")
-        
-        setColWidths(
-          wb,
-          sheet = "recommendations",
-          cols = 1,      # Target the first column
-          widths = 70    # Set its width
-        )
-        setColWidths(
-          wb,
-          sheet = "recommendations",
-          cols = 2:(ncol(DT_table_object())-4),      #rest of the columns
-          widths = 12    # Set its width
-        )
-        setColWidths(
-          wb,
-          sheet = "recommendations",
-          cols = c(5,6,9,11,18,22),      #rest of the columns
-          widths = 20    # Set its width
-        )
-        setColWidths(
-          wb,
-          sheet = "recommendations",
-          cols = ncol(DT_table_object())-2,      #rest of the columns
-          widths = 20    # Set its width
-        )
-        
-        wrap_style <- createStyle(wrapText = TRUE)
-        addStyle(
-          wb,
-          sheet = "recommendations",
-          style = wrap_style,
-          rows = 1:(nrow(DT_table_object()) + 1), # all rows
-          cols = 1:ncol(DT_table_object()),          # all columns
-          gridExpand = TRUE                 # Ensure style is applied to all specified cells
-        )
-        
-        freezePane(
-          wb,
-          sheet = "recommendations",
-          firstActiveRow = 2, # The second row is the first one that moves
-          firstActiveCol = 2  # The second column is the first one that moves
-        )
-        
-        incProgress(0.7, detail = "--> Saving output (this may take a moment)")
-        saveWorkbook(wb, file)
-        
-        incProgress(1, detail = "Done!")
-      })
-    }
-  )
-  
+ 
   ##### Region downloads --------------------
   # Same columns and names as the State download, for any set of recommendations.
   # (Does not need a State to be selected, unlike DT_table_object().)
@@ -3113,16 +3084,86 @@ server <- function(input, output, session) {
     }
   )
   
-  # Region download buttons: for "Global" the region data IS all the data,
-  # so only one button is offered.
-  output$region_downloads_ui <- renderUI({
+  ##### Download what is currently shown in the table --------------------
+  shown_rowids <- function(td, rows_all) {
+    if (is.null(rows_all)) td$table$rowid else td$table$rowid[rows_all]
+  }
+  
+  ##### Download what is shown in the table (csv or xlsx) --------------------
+  
+  # The recommendations currently shown in a table, in the download format.
+  # Takes into account the active tab, the clicked bar, the search box and the column filters.
+  selection_SUR <- function() {
+    on_all <- identical(input$table_tabs_SUR, "all")
+    td   <- if (on_all) table_all_SUR_data() else table_SUR_data()
+    rows <- if (on_all) input$table_all_SUR_rows_all else input$plotly_table_SUR_rows_all
+    format_upr_download(filtered_upr() |> filter(rowid %in% shown_rowids(td, rows)))
+  }
+  selection_regional <- function() {
+    on_all <- identical(input$table_tabs_regional, "all")
+    td   <- if (on_all) table_all_regional_data() else table_regional_data()
+    rows <- if (on_all) input$table_all_regional_rows_all else input$plotly_table_regional_rows_all
+    format_upr_download(filtered_upr_region() |> filter(rowid %in% shown_rowids(td, rows)))
+  }
+  
+  # File name: country or region, plus "-health" or "-all" depending on the tab
+  selection_file <- function(name, tab, ext) {
+    paste0("UPR-recommendations-",
+           gsub("^-|-$", "", gsub("[^A-Za-z0-9]+", "-", name)),
+           if (identical(tab, "all")) "-all" else "-health",
+           ".", ext)
+  }
+  
+  # Formatted Excel file (same look as the old State download)
+  write_upr_xlsx <- function(d, file) {
+    withProgress(message = "Generating xlsx file", value = 0.3, {
+      wb <- createWorkbook()
+      addWorksheet(wb, "recommendations")
+      writeDataTable(wb, "recommendations", d, tableStyle = "TableStyleMedium15")
+      setColWidths(wb, "recommendations", cols = seq_len(ncol(d)), widths = 14)
+      setColWidths(wb, "recommendations", cols = 1, widths = 70)            # Recommendation
+      wide <- which(names(d) %in% c("State under Review", "Recommending State(s)",
+                                    "State's response", "Document"))
+      if (length(wide)) setColWidths(wb, "recommendations", cols = wide, widths = 22)
+      addStyle(wb, "recommendations", createStyle(wrapText = TRUE),
+               rows = 1:(nrow(d) + 1), cols = seq_len(ncol(d)), gridExpand = TRUE)
+      freezePane(wb, "recommendations", firstActiveRow = 2, firstActiveCol = 2)
+      incProgress(0.5, detail = "Saving (this may take a moment)")
+      saveWorkbook(wb, file, overwrite = TRUE)
+    })
+  }
+  
+  output$download_selection_SUR_csv <- downloadHandler(
+    filename = function() selection_file(input$selected_SUR, input$table_tabs_SUR, "csv"),
+    content  = function(file) write_csv(selection_SUR(), file)
+  )
+  output$download_selection_SUR_xlsx <- downloadHandler(
+    filename = function() selection_file(input$selected_SUR, input$table_tabs_SUR, "xlsx"),
+    content  = function(file) write_upr_xlsx(selection_SUR(), file)
+  )
+  output$download_selection_regional_csv <- downloadHandler(
+    filename = function() selection_file(input$selected_region, input$table_tabs_regional, "csv"),
+    content  = function(file) write_csv(selection_regional(), file)
+  )
+  output$download_selection_regional_xlsx <- downloadHandler(
+    filename = function() selection_file(input$selected_region, input$table_tabs_regional, "xlsx"),
+    content  = function(file) write_upr_xlsx(selection_regional(), file)
+  )
+  
+  # Buttons: csv and xlsx everywhere, except no xlsx for Global (too large)
+  output$SUR_downloads_ui <- renderUI({
+    tagList(
+      downloadButton("download_selection_SUR_csv",  "Download selection (csv)"),
+      downloadButton("download_selection_SUR_xlsx", "Download selection (xlsx)")
+    )
+  })
+  output$regional_downloads_ui <- renderUI({
     if (identical(input$selected_region, "Global")) {
-      downloadButton("download_region_csv_all", "All data (csv)")
+      downloadButton("download_selection_regional_csv", "Download selection (csv)")
     } else {
       tagList(
-        downloadButton("download_region_csv",     "Region data (csv)"),
-        downloadButton("download_region_xlsx",    "Region data (xlsx)"),
-        downloadButton("download_region_csv_all", "All data (csv)")
+        downloadButton("download_selection_regional_csv",  "Download selection (csv)"),
+        downloadButton("download_selection_regional_xlsx", "Download selection (xlsx)")
       )
     }
   })
