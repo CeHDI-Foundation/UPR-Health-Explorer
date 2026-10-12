@@ -1462,7 +1462,7 @@ Grouping by Fragile/Conflict-affected Situations (**FCS status**) was made accor
                     tags$div(class = "haro-eyebrow", "HEALTH & RIGHTS OBSERVATORY"),
                     tags$h1("Advancing the Right to Health Worldwide"),
                     tags$p(class = "haro-lede",
-                           HTML("Welcome to the <strong>Health &amp; Rights Observatory</strong>. This platform has been designed and created by the <strong>Global Center for Health Diplomacy and Inclusion (CeHDI)</strong> to mainstream the right to health across UN human rights processes and empower diplomats, policymakers civil society, and advocates to advance health equity worldwide.")),
+                           HTML("Welcome to the <strong>Health &amp; Rights Observatory</strong>. This platform has been designed and created by the <strong>Global Center for Health Diplomacy and Inclusion (CeHDI)</strong> to mainstream the right to health across UN human rights processes and empower diplomats, policymakers, civil society, and advocates to advance health equity worldwide.")),
                     tags$div(
                       class = "haro-impact-teaser",
                       tags$a(
