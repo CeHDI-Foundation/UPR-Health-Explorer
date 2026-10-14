@@ -32,6 +32,7 @@ source(here("code", "external_data_GBD.R"))
 
 # Read in pre-processed datasets
 sdg_data <- readRDS(here("output", "UHRI_UPR_classified.rds")) |> 
+  filter(!is.na(response_upr)) |>          # Japan's response text + Micronesia's pledges
   mutate(response_upr = fct_recode(response_upr, 
                                    "Noted" = "Partially supported"),
          response_upr = fct_relevel(response_upr, "Noted")) |> 
@@ -370,8 +371,7 @@ build_upr_cycle_plot <- function(theme_summary) {
       rows = vars(theme_label), switch = "y"
     )+
     labs(x = "% of all recommendations in cycle", y = NULL,
-         fill = "State's response",
-         caption = "*Numbers after the bars indicate N (% supported, where a response is available)")+
+         fill = "State's response")+
     theme_classic()+
     scale_fill_manual(values = c("#ec5557", "#1c164d", "grey"))+
     scale_x_continuous(labels = function(x) paste0(x, "%"),
@@ -562,6 +562,14 @@ upr_ggplotly <- function(p, title_text, fix_strip_labels = FALSE,
     }
     tr
   })
+  legend_order <- rev(c("Supported", "Noted", "Response not available"))
+  fig$x$data <- lapply(fig$x$data, function(tr) {
+    if (!is.null(tr$name)) {
+      rank <- match(tr$name, legend_order)
+      if (!is.na(rank)) tr$legendrank <- rank
+    }
+    tr
+  })
   if (fix_strip_labels) {
     # ggplotly renders side strips with an angle; make them horizontal and put them
     # on the left, right-aligned against the bars
@@ -587,10 +595,10 @@ upr_ggplotly <- function(p, title_text, fix_strip_labels = FALSE,
       plot_bgcolor = 'rgba(0,0,0,0)',
       legend = list(
         traceorder = "reversed",
-        x = 0.99,
-        y = 0.01,
+        x = 0,
+        y = 0,
         xanchor = 'right',
-        yanchor = 'bottom',
+        yanchor = 'top',
         bgcolor = 'rgba(0,0,0,0)', # Transparent background
         bordercolor = 'rgba(0,0,0,0)'
       ),
@@ -628,11 +636,6 @@ upr_png_download <- function(plot_reactive, name_reactive, expand_right = 0.2,
       } else {
         paste0("Health-related recommendations of the UPR\n", name_reactive())
       }
-      caption_txt <- if (fr) {
-        "*Les nombres après les barres indiquent N (% accepté, lorsqu'une réponse est disponible)"
-      } else {
-        "*Numbers after the bars indicate N (% supported, where a response is available)"
-      }
       ggsave(
         file,
         plot = p +
@@ -643,7 +646,7 @@ upr_png_download <- function(plot_reactive, name_reactive, expand_right = 0.2,
           scale_x_continuous(
             expand = expansion(mult = c(0, expand_right))
           ) +
-          labs(title = title_txt, caption = caption_txt)+
+          labs(title = title_txt)+
           geom_text(
             data = p@data |> filter(response_upr == "Supported"),
             aes(label = paste0(n_tot_theme, " ", n_sup), x = perc_theme),
@@ -925,8 +928,8 @@ country_dependent_tabs <- c(
 ui <- page_navbar(
   id = "main_navbar",
   theme = app_theme,
+  window_title = "Health & Rights Observatory",
   # Rearrange the tags so the link only wraps the image
-  
   title = span(
     tags$a(
       href = "https://www.cehdi.org/",
@@ -965,6 +968,11 @@ ui <- page_navbar(
       .selectize-dropdown {
         width: auto !important; /* Let the content define the width */
         min-width: 200px;       /* Set a minimum for good measure */
+      }
+      
+            /* Sidebar width follows the window: 400px on large screens, narrower on smaller ones */
+      @media (max-width: 1400px) {
+        .bslib-sidebar-layout { --_sidebar-width: clamp(240px, 23vw, 400px) !important; }
       }
     ")),
     tags$style(HTML("
@@ -1457,7 +1465,7 @@ Grouping by Fragile/Conflict-affected Situations (**FCS status**) was made accor
                     tags$div(class = "haro-eyebrow", "HEALTH & RIGHTS OBSERVATORY"),
                     tags$h1("Advancing the Right to Health Worldwide"),
                     tags$p(class = "haro-lede",
-                           HTML("Welcome to the <strong>Health &amp; Rights Observatory</strong>. This platform has been designed and created by the <strong>Global Center for Health Diplomacy and Inclusion (CeHDI)</strong> to mainstream the right to health across UN human rights processes and empower diplomats, policymakers civil society, and advocates to advance health equity worldwide.")),
+                           HTML("Welcome to the <strong>Health &amp; Rights Observatory</strong>. This platform has been designed and created by the <strong>Global Center for Health Diplomacy and Inclusion (CeHDI)</strong> to mainstream the right to health across UN human rights processes and empower diplomats, policymakers, civil society, and advocates to advance health equity worldwide.")),
                     tags$div(
                       class = "haro-impact-teaser",
                       tags$a(
@@ -2992,8 +3000,7 @@ server <- function(input, output, session) {
       labs(
         x = "Proportion of all recommendations (%)", y = NULL,
         fill = "State's response",
-        title = paste("All health-related recommendations of the UPR\n", input$selected_SUR),
-        caption = "*Numbers after the bars indicate N (% supported, where a response is available)"
+        title = paste("All health-related recommendations of the UPR\n", input$selected_SUR)
       ) +
       theme_classic() +
       scale_x_continuous(
