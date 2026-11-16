@@ -18,7 +18,7 @@ pacman::p_load(
   sf, # mapping features
   # necountries,
   patchwork,
-  pdftools,
+  # pdftools,
   tinytex,
   plotly,
   leaflet
@@ -31,12 +31,18 @@ pacman::p_load(
 source(here("code", "external_data_GBD.R"))
 
 # Read in pre-processed datasets
-sdg_data <- readRDS(here("output", "UHRI_UPR_classified.rds")) |> 
-  filter(!is.na(response_upr)) |>          # Japan's response text + Micronesia's pledges
-  mutate(response_upr = fct_recode(response_upr, 
-                                   "Noted" = "Partially supported"),
-         response_upr = fct_relevel(response_upr, "Noted")) |> 
-  droplevels()
+# output/sdg_data_app.rds is the slim, already-cleaned version built by
+# code/04_prepare_app_data.R (loads ~4x faster). Fall back to the full file if it is missing.
+if (file.exists(here("output", "sdg_data_app.rds"))) {
+  sdg_data <- readRDS(here("output", "sdg_data_app.rds"))
+} else {
+  sdg_data <- readRDS(here("output", "UHRI_UPR_classified.rds")) |> 
+    filter(!is.na(response_upr)) |>          # Japan's response text + Micronesia's pledges
+    mutate(response_upr = fct_recode(response_upr, 
+                                     "Noted" = "Partially supported"),
+           response_upr = fct_relevel(response_upr, "Noted")) |> 
+    droplevels()
+}
 state_geo <- readRDS(here("output", "state_geo_enhanced.rds"))
 nearest_neighbors_list <- readRDS(here("output", "nearest_neighbors_list.rds"))
 source(here("code", "theme_labels.R"))
@@ -1411,9 +1417,7 @@ body.sidebar-toggle-white .bslib-sidebar-layout .collapse-toggle .bi {
       width = 390,
       accordion_panel(
         "Disclaimer and data sources",
-        markdown("This dashboard displays the results of a **preliminary** analysis regarding recommendations from the first four cycles of the Universal Periodic Review (UPR). ***Results are subject to change as the classification methodology continues to be refined and as data sources are updated***.
-
-UPR recommendations were downloaded directly from the [Universal Human Rights Index](https://uhri.ohchr.org/en/our-data-api), maintained by the Office of the High Commissioner for Human Rights.
+        markdown("UPR recommendations were downloaded directly from the [Universal Human Rights Index](https://uhri.ohchr.org/en/our-data-api), maintained by the Office of the High Commissioner for Human Rights.
 
 Data related to various indicators (e.g. maternal mortality ratio and estimated abortion rates) were accessed via the [Global Health Observatory's API](https://www.who.int/data/gho/info/gho-odata-api), and data regarding the causes of maternal death were obtained using the [IHME's GBD Results tool](https://vizhub.healthdata.org/gbd-results/).
 
